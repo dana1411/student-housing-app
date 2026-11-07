@@ -167,6 +167,17 @@ await check('reload keeps the data (stored in the browser)', async () => {
   await page.locator('main', { hasText: 'Gold House Annex' }).first().waitFor({ timeout: 15000 });
 });
 
+await check('tenancy agreement downloads as a PDF', async () => {
+  await click(act('tab', '[data-t="lodge"]'));
+  if (!(await page.locator('main [data-v="agreement"]').count())) await click('main [data-act="push"][data-v="key"]');
+  await click('main [data-v="agreement"]');
+  const [dl] = await Promise.all([page.waitForEvent('download', { timeout: 20000 }), click(act('docPdf'))]);
+  const f = await dl.path();
+  const head = fs.readFileSync(f).subarray(0, 5).toString();
+  if (head !== '%PDF-') throw new Error('not a PDF: ' + head);
+  await click(act('back'));
+});
+
 await check('savings: add money and withdraw', async () => {
   await click(act('tab', '[data-t="savings"]'));
   await click(act('deposit'));
