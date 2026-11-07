@@ -983,8 +983,9 @@ function body(){
  const html=f?f():gone();
  return clock+(WIDE.includes(key)?html:`<div class="narrow">${html}</div>`);
 }
+let LOAD_ERR='';
 function render(){
- if(!READY){app.innerHTML='<div class="boot" aria-busy="true"><div class="boot-mark"></div><p>Loading Lodgely…</p></div>';return;}
+ if(!READY){app.innerHTML=LOAD_ERR?`<div class="boot"><h1>Can't load Lodgely</h1><p>${esc(LOAD_ERR)}</p><button class="btn" data-act="retryLoad">Try again</button></div>`:'<div class="boot" aria-busy="true"><div class="boot-mark"></div><p>Loading Lodgely…</p></div>';return;}
  if(S.screen==='landing'){app.innerHTML=landingHeader()+`<main id="main" class="land">${landing()}</main>`;return;}
  if(S.screen==='page'){app.innerHTML=landingHeader()+`<main id="main" class="land">${pageView()}</main>`;return;}
  app.innerHTML=header()+`<main class="wrap" id="main">${body()}</main>`+tabbar();
@@ -1286,6 +1287,7 @@ async function providerPay(m,co){
 const closeAll=()=>{S.modal=null;save();render();renderModal();};
 const ACT={
  noop:()=>{},
+ retryLoad:async()=>{LOAD_ERR='';render();try{await refresh();}catch(e){LOAD_ERR=e.message||'Check your connection.';}render();renderModal();},
  themeMenu:()=>{themeOpen=!themeOpen;syncTheme();if(themeOpen){const b=document.querySelector('.tmenu [aria-checked="true"]');if(b)b.focus();}},
  setTheme:el=>{const m=el.dataset.mode;themePref=m;try{localStorage.setItem(THEME_KEY,m);}catch(e){}if(m==='system')root.removeAttribute('data-theme');else root.setAttribute('data-theme',m);themeOpen=false;syncTheme();toast(m==='system'?'Theme now follows your device.':m==='dark'?'Dark mode on.':'Light mode on.');},
  gal:el=>{const g=el.closest('.gal'),t=g&&g.querySelector('.gal-track');if(!t)return;const n=t.children.length,w=t.clientWidth||1;let i=Math.round(t.scrollLeft/w)+(+el.dataset.dir);if(i<0)i=n-1;if(i>=n)i=0;let rm=false;try{rm=matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}if(t.scrollTo)t.scrollTo({left:i*w,behavior:rm?'auto':'smooth'});else t.scrollLeft=i*w;setDots(g,i);},
@@ -2079,7 +2081,7 @@ addEventListener('resize',placeTour);
 addEventListener('scroll',()=>{if(tourState)requestAnimationFrame(placeTour);},{passive:true});
 loadedViews.add(viewKey());
 render();
-try{await refresh();}catch(e){toast(e.message);}
+try{await refresh();}catch(e){LOAD_ERR=e.message||'Check your connection.';}
 // returning from Paystack in a browser tab: ?pay=REF
 try{const q=new URLSearchParams(location.search),ref=q.get('pay');if(ref){history.replaceState(null,'',location.pathname);
  if(B.user()){try{await B.providerVerify(ref);}catch(e){}const st=await B.call('payment_status',{ref});await refresh();S.screen='app';
