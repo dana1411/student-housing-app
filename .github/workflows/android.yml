@@ -7,6 +7,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write   # to publish the APK on the Releases page
+
 jobs:
   apk:
     runs-on: ubuntu-latest
@@ -35,6 +38,17 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
+      # Easiest place to get it on a phone: the repo's Releases page, "Android app (latest build)".
+      - name: Publish the APK on the Releases page
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NAME=$(node -p "require('./app.config.json').name.replace(/[^A-Za-z0-9]+/g,'-')")
+          cp android/app/build/outputs/apk/debug/app-debug.apk "$NAME.apk"
+          gh release delete android-latest --yes --cleanup-tag || true
+          gh release create android-latest "$NAME.apk" --title "Android app (latest build)" --target "$GITHUB_SHA" \
+            --notes "Test build from $(date -u +'%d %b %Y %H:%M') UTC. On your Android phone: tap the .apk file below to download it, open it, and allow installing from this source when asked."
       - uses: actions/upload-artifact@v4
         with:
           name: app-debug-apk
