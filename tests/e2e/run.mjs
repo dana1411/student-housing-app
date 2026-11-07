@@ -166,6 +166,77 @@ await check('reload keeps the data (stored in the browser)', async () => {
   await page.locator('main', { hasText: 'Gold House Annex' }).first().waitFor({ timeout: 15000 });
 });
 
+await check('savings: add money and withdraw', async () => {
+  await click(act('tab', '[data-t="savings"]'));
+  await click(act('deposit'));
+  await page.fill('#dep', '15000');
+  await click(act('doDeposit'));
+  await page.locator('.sheet .done h2', { hasText: 'Added' }).waitFor({ timeout: 15000 });
+  await click('.sheet ' + act('closeModal'));
+  await click(act('withdraw'));
+  await page.fill('#wd', '5000');
+  await click(act('doWithdraw'));
+  await toast(/sent to your wallet/);
+});
+
+await check('profile settings save', async () => {
+  await click(act('tab', '[data-t="lodge"]'));
+  await click('[data-act="push"][data-v="settings"]');
+  await page.fill('#pf-dept', 'Computer Science · 400L');
+  await click(act('saveProfile'));
+  await toast(/Details saved/);
+  await click(act('prefToggle'));
+  await idle();
+});
+
+await check('new agent signs up, uploads documents, admin verifies them', async () => {
+  await click('main ' + act('logout'));
+  await toast(/Logged out/);
+  await click(act('landing'));
+  await click(act('agentSignup'));
+  await page.fill('#as-name', 'Femi Test');
+  await page.fill('#as-biz', 'Test Lodges');
+  await page.fill('#as-phone', '0803 555 1212');
+  await page.fill('#as-email', 'femi.test@example.com');
+  await page.fill('#as-pw', 'secret-pass-1');
+  await click(act('submitAgentSignup'));
+  const code = (await page.locator('.sheet .hint b.mono').textContent()).trim();
+  await page.fill('#as-otp', code);
+  await click(act('verifyAgentCode'));
+  await page.setInputFiles('#as-idfile', { name: 'nin.jpg', mimeType: 'image/jpeg', buffer: Buffer.from([0xff, 0xd8, 0xff, 0xd9]) });
+  await page.setInputFiles('#as-prooffile', { name: 'letter.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4') });
+  await click(act('submitAgentDocs'));
+  await page.locator('.sheet .done h2', { hasText: 'Application received' }).waitFor({ timeout: 15000 });
+  await click(act('viewApplication'));
+  await page.locator('main', { hasText: 'Admin is checking your documents' }).waitFor({ timeout: 10000 });
+  await click(act('role', '[data-r="admin"]'));
+  await idle();
+  await click(act('tab', '[data-t="users"]'));
+  await page.locator('.comp:has-text("Femi Test") ' + act('approveAgent')).click();
+  await toast(/Femi Test is verified/);
+});
+
+await check('the new agent logs in with their password', async () => {
+  await click(act('role', '[data-r="student"]'));
+  await idle();
+  if (!(await page.locator('header ' + act('login')).count())) {
+    await click(act('tab', '[data-t="lodge"]'));
+    await click('main ' + act('logout'));
+    await idle();
+  }
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await click('header ' + act('login'));
+  await click(act('authWho', '[data-w="agent"]'));
+  await page.fill('#li-id', 'femi.test@example.com');
+  await page.fill('#li-pw', 'wrong-password');
+  await click(act('doLogin'));
+  await page.locator('.sheet .err', { hasText: 'password' }).waitFor();
+  await page.fill('#li-pw', 'secret-pass-1');
+  await click(act('doLogin'));
+  await toast(/Logged in as Femi Test/);
+  await page.locator('main', { hasText: /Test Lodges|Femi/ }).first().waitFor();
+});
+
 await check('no script errors', async () => {
   const bad = errors.filter(e => !/favicon|Failed to load resource/.test(e));
   if (bad.length) throw new Error(bad.slice(0, 5).join(' | '));
