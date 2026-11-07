@@ -957,9 +957,8 @@ function navTo(){if(S.slow)loadedViews.delete(viewKey());}
 function header(){
  const unread=S.notes.filter(n=>n.to===meId()&&!n.read).length;
  return `<header class="band"><div class="band-in">
-  <button class="brand${DEMO?'':' solo'}" data-act="landing" aria-label="Lodgely home page">${KEYMARK}<span>Lodgely</span><em>OAU · Ile-Ife</em></button>
-  <div class="hd">${themeCtl()}${S.role==='student'&&!LOGGED()?'<button class="demo-btn" data-act="login">Log in</button>':''}<button class="iconbtn" data-act="notes" ${S.role==='student'&&!LOGGED()?'hidden':''} aria-label="Notifications${unread?', '+unread+' unread':''}">${ic('bell',21)}${unread?`<b class="dot">${unread}</b>`:''}</button>${DEMO?`<button class="demo-btn" data-act="demo">${ic('clock',16)} Demo</button>`:ME&&ME.role!=='student'?'<button class="demo-btn" data-act="logout">Log out</button>':''}</div>
-  ${DEMO?`<div class="seg" role="tablist" aria-label="View the app as">${[['student','Student'],['agent','Agent'],['admin','Admin']].map(([r,l])=>`<button role="tab" aria-selected="${S.role===r}" class="${S.role===r?'on':''}" data-act="role" data-r="${r}">${l}</button>`).join('')}</div>`:''}
+  <button class="brand" data-act="landing" aria-label="Lodgely home page">${KEYMARK}<span>Lodgely</span><em>OAU · Ile-Ife</em></button>
+  <div class="hd">${themeCtl()}${S.role==='student'&&!LOGGED()?'<button class="demo-btn" data-act="login">Log in</button>':''}<button class="iconbtn" data-act="notes" ${S.role==='student'&&!LOGGED()?'hidden':''} aria-label="Notifications${unread?', '+unread+' unread':''}">${ic('bell',21)}${unread?`<b class="dot">${unread}</b>`:''}</button>${ME&&ME.role!=='student'?`<button class="iconbtn" data-act="logout" aria-label="Log out" title="Log out">${ic('door',21)}</button>`:''}${DEMO?`<button class="demo-btn" data-act="demo" aria-label="Demo guide">${ic('clock',16)}<span class="dlbl"> Demo</span></button>`:''}</div>
  </div></header>`;
 }
 function tabbar(){
@@ -1125,14 +1124,17 @@ MODALS.demo=()=>{
  const k=activeKeys()[0];
  return `${mhead('Demo guide')}
  <ol class="steps">
-  <li><b>Student:</b> open Gold House Annex and book an inspection (${fmt(FEE)}).</li>
+  <li><b>As the student:</b> open Gold House Annex and book an inspection (${fmt(FEE)}).</li>
   <li>Enter the door code shown on the booking. Rent unlocks.</li>
   <li>Pay rent. You get a subscription key, the timer starts, and the room leaves search.</li>
-  <li><b>Agent:</b> see the new tenant, the held rent and the timer. Back as student, confirm move-in to release rent minus ${COMM*100}%.</li>
+  <li><b>As the agent:</b> see the new tenant, the held rent and the timer. Back as the student, confirm move-in to release rent minus ${COMM*100}%.</li>
   <li>Use the time machine below to trigger renewal pop-ups with savings coverage.</li>
-  <li><b>Admin:</b> approve Bisi Akande in Users, then her Fajuyi listing in Listings. Take down a listing, suspend a user, look up a key, or refund a payment.</li>
+  <li><b>As the admin:</b> approve Bisi Akande in Users, then her Fajuyi listing in Listings. Take down a listing, suspend a user, look up a key, or refund a payment.</li>
   <li><b>Ballot:</b> in Explore, scroll to Taken right now and open Modomo Court. Inspect it, join the ballot, then run the draw below.</li>
  </ol>
+ <h3 class="sub">Sample accounts</h3>
+ <p class="muted small">Each person only sees their own side of the app. To try another side, log in as one of the sample accounts. ${ME?`You are logged in as <b>${esc(ME.name)}</b>.`:'You are browsing as a visitor.'}</p>
+ <div class="jump">${[['student','Tolu (student)'],['agent','Kunle (agent)'],['admin','Admin']].map(([r,l])=>`<button class="btn sm ${ME&&ME.id===(B.people||{})[r]?'':'ghost'}" data-act="demoAs" data-r="${r}">${l}</button>`).join('')}</div>
  <h3 class="sub">Ballots</h3>
  <p class="muted small">Runs every open draw now instead of waiting for the date. If you are not drawn first, use Admin, Overview, "Winner didn't pay" to pass the offer down the line.</p>
  <div class="jump"><button class="btn sm ghost" data-act="runDraws" ${S.ballots.some(b=>b.status==='open')?'':'disabled'}>Run ballot draws now</button></div>
@@ -1295,8 +1297,8 @@ const ACT={
  landing:()=>{tourEnd(false,true);S.screen='landing';S.modal=null;save();render();renderModal();scrollTo(0,0);},
  ldTop:()=>scrollTo(0,0),
  ldScroll:el=>{const t=document.getElementById(el.dataset.to);if(t&&t.scrollIntoView)t.scrollIntoView({block:'start'});},
- openApp:()=>enterApp('student','explore'),
- viewAgent:async()=>{if(DEMO){await B.auth.signInAs('agent');S.visitor=false;await refresh();enterApp('agent','home');toast('You are viewing the agent side as Kunle Oladipo.');return;}if(ME&&ME.role==='agent'){enterApp('agent','home');return;}ACT.agentSignup();},
+ openApp:()=>enterApp(ME?ME.role:'student',ME&&ME.role==='agent'?'home':ME&&ME.role==='admin'?'overview':'explore'),
+ viewAgent:()=>{if(ME&&ME.role==='agent'){enterApp('agent','home');return;}S.modal={type:'auth',step:'login',who:'agent',id:''};renderModal();},
  ldFind:()=>{
   const ld=S.ld;
   if(ld.school!=='oau'){S.modal={type:'waitlist',school:ld.school,contact:'',who:'student'};renderModal();return;}
@@ -1346,6 +1348,7 @@ const ACT={
  tourBack:()=>{if(tourState&&tourState.i>0){tourState.i--;showStep();}},
  tourSkip:()=>tourEnd(false),
  tourReplay:()=>{try{localStorage.removeItem('lodgely-tour');}catch(e){}window.__lodgelyTour=false;enterApp('student','explore');},
+ demoAs:async el=>{if(!DEMO)return;const r=el.dataset.r;try{await B.auth.signInAs(r);S.visitor=false;}catch(e){toast(e.message);return;}S.modal=null;renderModal();S.pendingAct=null;await afterLogin();},
  role:async el=>{const r=el.dataset.r;if(!DEMO)return;S.modal=null;
   try{if(r==='student'){if(S.visitor){if(ME)await B.auth.signOut();}else if(!ME||ME.role!=='student')await B.auth.signInAs('student');}else if(!ME||ME.role!==r||(r==='agent'&&ME.id!==B.people.agent))await B.auth.signInAs(r);await refresh();}catch(e){toast(e.message);}
   S.role=r;navTo();save();render();renderModal();scrollTo(0,0);},
@@ -1722,7 +1725,7 @@ function landing(){
  </div></section>
  <section class="lsec" id="ld-agents" style="padding-top:0"><div class="lwrap"><div class="lagent">
   <div class="lsec-h"><p class="eyebrow">For agents and caretakers</p><h2 class="lh2">Get paid for every visit</h2><p>You pay nothing to list. Lodgely sends you serious students, keeps their money safe and takes ${COMM*100}% when you get paid.</p>
-   <div class="btns" style="margin-top:10px"><button class="btn brass" data-act="agentSignup">Register as an agent</button><button class="btn ghost onband-g" data-act="viewAgent">See the agent view</button></div></div>
+   <div class="btns" style="margin-top:10px"><button class="btn brass" data-act="agentSignup">Register as an agent</button><button class="btn ghost onband-g" data-act="viewAgent">Agent log in</button></div></div>
   <ul class="lbens">${LD_BENS.map(([i,t,d])=>`<li class="lben">${ic(i,20)}<div><b>${t}</b><span>${d}</span></div></li>`).join('')}</ul>
  </div></div></section>
  <section class="lsec alt" id="ld-faq"><div class="lwrap">
@@ -2039,8 +2042,7 @@ const TOUR=[
  {sel:'.filters',t:'Narrow it down',d:'Set your budget, room type and area. The buttons below add must-haves like steady water or a prepaid meter.'},
  {sel:'#results .card',t:'Read a listing at a glance',d:'Swipe the photos. The badges show the room type and the walk to the gate. Tap the heart to save it.'},
  {sel:'.tab[data-t="lodge"]',t:'Your key lives here',d:'Inspect a house and pay rent, and your subscription key and countdown appear in My lodge. Lodgely holds the rent until you move in.'},
- {sel:'.tab[data-t="messages"]',t:'Chat inside Lodgely',d:'Message agents here. Never send money outside the app. Lodgely flags messages that ask for it.'},
- {sel:'.seg',t:'See the other side',d:'Switch to Agent or Admin to see listings, visits, payouts and approvals. Tap Demo any time for the full walkthrough.'}
+ {sel:'.tab[data-t="messages"]',t:'Chat inside Lodgely',d:'Message agents here. Never send money outside the app. Lodgely flags messages that ask for it.'}
 ];
 function tourDone(){try{return localStorage.getItem('lodgely-tour')==='done';}catch(e){return !!window.__lodgelyTour;}}
 function maybeTour(){if(tourState||tourDone()||S.screen!=='app'||S.role!=='student'||S.modal||nav().tab!=='explore'||nav().stack.length)return;startTour();}

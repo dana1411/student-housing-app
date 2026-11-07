@@ -57,8 +57,7 @@ ul,ol{margin:0}
   background-image:radial-gradient(circle,transparent 5px,var(--band-ring) 5.5px,var(--band-ring) 7px,transparent 7.5px),radial-gradient(circle,var(--band-ring) 1.6px,transparent 2px);
   background-size:26px 26px,26px 26px;background-position:0 0,13px 13px}
 .band-in{max-width:1000px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px 12px;
-  display:grid;grid-template-columns:1fr auto;grid-template-areas:"brand act" "seg seg";gap:10px 12px;align-items:center}
-@media (min-width:760px){.band-in{grid-template-columns:auto 1fr auto;grid-template-areas:"brand seg act"}.seg{justify-self:center;width:min(380px,100%)}}
+  display:grid;grid-template-columns:1fr auto;grid-template-areas:"brand act";gap:10px 12px;align-items:center}
 .brand{grid-area:brand;display:flex;align-items:center;gap:8px;font-family:var(--f-display);font-weight:850;font-stretch:125%;font-size:22px;letter-spacing:-.01em;line-height:1}
 .brand svg{color:var(--brass-hi)}
 .brand em{font:700 10.5px/1 var(--f-body);font-style:normal;letter-spacing:.09em;text-transform:uppercase;color:var(--band-muted);border:1px solid var(--band-line);padding:4px 7px;border-radius:99px}
@@ -550,3 +549,5 @@ button.brand{border:0;background:none;color:inherit;padding:0;text-align:left;cu
 @media (prefers-reduced-motion: reduce){.boot-mark{animation:none}}
 body.busy{cursor:progress}
 body.busy [data-act]{pointer-events:none}
+.demo-btn{white-space:nowrap}
+@media (max-width:420px){.hd .demo-btn .dlbl{display:none}.hd .demo-btn{padding-inline:9px}}

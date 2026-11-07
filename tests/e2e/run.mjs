@@ -46,6 +46,13 @@ const click = async (sel, opts) => { await page.locator(sel).first().click(opts)
 const act = (a, extra = '') => `[data-act="${a}"]${extra}`;
 const toast = async re => { await page.locator('#toast .toast-box', { hasText: re }).first().waitFor({ timeout: 8000 }); };
 const idle = () => page.waitForFunction(() => !document.body.classList.contains('busy'), null, { timeout: 15000 });
+// switch to a sample account through the Demo guide (there is no role switcher in the app)
+async function loginAs(role) {
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await click('header ' + act('demo'));
+  await click('.sheet ' + act('demoAs', `[data-r="${role}"]`));
+  await idle();
+}
 
 await page.addInitScript(() => { try { localStorage.setItem('lodgely-tour', 'done'); } catch {} });
 await page.goto(`http://localhost:${PORT}/`);
@@ -69,6 +76,10 @@ await check('booking needs an account; demo login continues', async () => {
   await page.locator('.sheet').waitFor();
   await click(act('demoLogin'));
   await toast(/Logged in as Tolu/);
+  // a student only ever sees the student tabs
+  if (await page.locator('[data-act="role"]').count()) throw new Error('role switcher is visible');
+  const tabs = (await page.locator('.tabbar').innerText()).replace(/\s+/g, ' ');
+  if (/Listings|Users|Payments|Visits|Overview/.test(tabs)) throw new Error('student sees other tabs: ' + tabs);
   await page.locator('.sheet input[name="slot"]').first().waitFor({ timeout: 10000 });
 });
 
@@ -115,7 +126,7 @@ await check('chat with the agent; the demo agent replies', async () => {
 });
 
 await check('agent side: tenant, held money and visits', async () => {
-  await click(act('role', '[data-r="agent"]'));
+  await loginAs('agent');
   await idle();
   await page.locator('main', { hasText: 'Kunle' }).first().waitFor({ timeout: 10000 }).catch(() => {});
   await click(act('tab', '[data-t="inspections"]'));
@@ -131,7 +142,7 @@ await check('agent adds a listing; admin approves it', async () => {
   await page.fill('#nl-r0p', '200000');
   await click(act('submitListing'));
   await toast(/Sent for review/);
-  await click(act('role', '[data-r="admin"]'));
+  await loginAs('admin');
   await idle();
   await click(act('tab', '[data-t="listings"]'));
   await page.locator('.comp:has-text("Test Court") ' + act('approveListing')).click();
@@ -148,7 +159,7 @@ await check('admin overview and payments render', async () => {
 });
 
 await check('time machine: renewal prompt 30 days before the key ends', async () => {
-  await click(act('role', '[data-r="student"]'));
+  await loginAs('student');
   await idle();
   await click(act('demo'));
   await page.locator(act('jump', '[data-n="30"]')).scrollIntoViewIfNeeded();
@@ -221,7 +232,7 @@ await check('new agent signs up, uploads documents, admin verifies them', async 
   await page.locator('.sheet .done h2', { hasText: 'Application received' }).waitFor({ timeout: 15000 });
   await click(act('viewApplication'));
   await page.locator('main', { hasText: 'Admin is checking your documents' }).waitFor({ timeout: 10000 });
-  await click(act('role', '[data-r="admin"]'));
+  await loginAs('admin');
   await idle();
   await click(act('tab', '[data-t="users"]'));
   await page.locator('.comp:has-text("Femi Test") ' + act('approveAgent')).click();
@@ -229,7 +240,7 @@ await check('new agent signs up, uploads documents, admin verifies them', async 
 });
 
 await check('the new agent logs in with their password', async () => {
-  await click(act('role', '[data-r="student"]'));
+  await loginAs('student');
   await idle();
   if (!(await page.locator('header ' + act('login')).count())) {
     await click(act('tab', '[data-t="lodge"]'));
