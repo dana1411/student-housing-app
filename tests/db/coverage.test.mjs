@@ -123,12 +123,12 @@ test('anonymous: support, waitlist; account deletion', async () => {
   assert.equal(st.support.length, 1);
   assert.equal(st.waitlist.length, 1);
   await db.call('toggle_support_done', { id: st.support[0].id });
-  // s12 has nothing pending, so they can delete their account
-  await db.as('s6');
+  // s8 only has a finished tenancy, so they can delete their account
+  await db.as('s8');
   const chk = await db.call('delete_account_check', {});
   assert.deepEqual(chk.busy, []);
   await db.call('delete_account', {});
-  assert.equal((await db.one('select deleted, name from app.profiles where id = $1', [db.ids.s6])).name, 'Deleted user');
+  assert.equal((await db.one('select deleted, name from app.profiles where id = $1', [db.ids.s8])).name, 'Deleted user');
   // s1 still has savings history but balance; check reports blockers
   await db.as('s4');
   assert.ok((await db.call('delete_account_check', {})).busy.length > 0);

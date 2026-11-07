@@ -582,11 +582,12 @@ function inspRowStudent(i){
 }
 function payRow(p,admin){
  const h=house(p.houseId);const lbl={inspection:'Inspection fee',rent:'Rent',renewal:'Renewal'}[p.kind];
- const st={held:chip('Held until move-in','warn'),released:chip(admin?'Released to agent':'Paid to agent','ok'),refunded:chip('Refunded','info'),paid:chip('Paid','ok')}[p.status];
+ const st={held:chip('Held until move-in','warn'),released:chip(admin?(p.paidOutAt?'Sent to agent':'Released to agent'):'Paid to agent','ok'),refunded:chip(p.refundNeeded&&admin?'Refund to send':'Refunded',p.refundNeeded&&admin?'warn':'info'),paid:chip('Paid','ok'),failed:chip(p.refundNeeded?'Failed · refund to send':'Failed','bad')}[p.status];
  let act='';
  if(admin){
   if(p.status==='held')act=`<div class="btns" style="margin-top:6px"><button class="btn sm ghost" data-act="release" data-id="${p.id}">Release to agent</button><button class="btn sm ghost danger-t" data-act="refund" data-id="${p.id}">Refund</button></div>`;
   else if(p.kind==='inspection'&&p.status==='paid'&&S.inspections.some(i=>i.payId===p.id&&i.status==='booked'))act=`<div class="btns" style="margin-top:6px"><button class="btn sm ghost danger-t" data-act="refund" data-id="${p.id}">Refund fee</button></div>`;
+  if((p.status==='released'||(p.status==='paid'&&p.kind==='inspection'&&!S.inspections.some(i=>i.payId===p.id&&i.status==='booked')))&&!p.paidOutAt&&PAYMODE==='paystack')act+=`<div class="btns" style="margin-top:6px"><button class="btn sm ghost" data-act="paidOut" data-id="${p.id}">Mark as sent to agent</button></div>`;
  }
  return `<div class="rowi"><div class="grow"><div class="row-between"><b>${lbl}${admin?' · '+esc(stu(p.studentId).name):''}</b><b class="num">${fmt(p.amount)}</b></div>
   <span class="muted small">${esc(h?h.title:'')} · ${fmtDate(p.time)} · ${esc(p.method)}${p.savingsUsed?` · ${fmt(p.savingsUsed)} from savings`:''}</span>
@@ -828,7 +829,7 @@ V.admin_overview=()=>{
  <section class="block"><div class="row-between"><h2>Latest payments</h2><button class="link" data-act="tab" data-t="payments">All payments</button></div><div class="rows">${S.payments.slice().sort((a,b)=>b.time-a.time).slice(0,4).map(p=>payRow(p,true)).join('')}</div></section>`;
 };
 function pendingListingCard(h){const a=agent(h.agentId);return `<div class="comp"><div class="sum-h">${art(h,'art thumb')}<div><b>${esc(h.title)}</b><span class="muted small">${esc(h.area)} · by ${esc(a.name)} · ${h.rooms.length} rooms from ${fmtK(Math.min(...h.rooms.map(r=>r.price)))}</span></div></div><p class="small">${esc(h.desc)}</p>${a.status!=='verified'?`<p class="note warn-t">${ic('alert',16)} <span>Agent not verified yet. The listing stays hidden until the agent is approved too.</span></p>`:''}<div class="btns"><button class="btn sm" data-act="approveListing" data-id="${h.id}">Approve listing</button><button class="btn sm ghost danger-t" data-act="rejectListing" data-id="${h.id}">Reject</button></div></div>`;}
-function pendingAgentCard(a){return `<div class="comp"><div class="comp-h"><div><b>${esc(a.name)}</b><span class="muted small">${esc(a.biz)} · applied ${a.since}</span></div>${chip('Pending','warn')}</div><ul class="steps-v">${(a.docs||[]).map(x=>`<li>${ic('check',18)} ${esc(x)}</li>`).join('')}</ul><div class="btns"><button class="btn sm" data-act="approveAgent" data-id="${a.id}">Approve and verify</button><button class="btn sm ghost danger-t" data-act="rejectAgent" data-id="${a.id}">Reject</button></div></div>`;}
+function pendingAgentCard(a){return `<div class="comp"><div class="comp-h"><div><b>${esc(a.name)}</b><span class="muted small">${esc(a.biz)} · applied ${a.since}</span></div>${chip('Pending','warn')}</div><ul class="steps-v">${(a.docs||[]).map(x=>`<li>${ic('check',18)} ${esc(x)}</li>`).join('')}</ul>${(a.docFiles||[]).length&&!DEMO?`<div class="btns">${a.docFiles.map((f,i)=>`<button class="btn sm ghost" data-act="viewDoc" data-path="${esc(f)}">Open document ${i+1}</button>`).join('')}</div>`:''}<div class="btns"><button class="btn sm" data-act="approveAgent" data-id="${a.id}">Approve and verify</button><button class="btn sm ghost danger-t" data-act="rejectAgent" data-id="${a.id}">Reject</button></div></div>`;}
 function adminListHTML(){
  const f=S.lstF||'live',q=(S.lstQ||'').trim().toLowerCase();
  const L=S.houses.filter(h=>!h.deleted&&h.mod===f).filter(h=>!q||(h.title+' '+h.area+' '+agent(h.agentId).name).toLowerCase().includes(q));
@@ -1561,6 +1562,7 @@ const ACT={
  approveListing:el=>run('approve_listing',{id:el.dataset.id},{close:false,ok:r=>r.title+(r.agentVerified?' is live.':' approved. It shows once the agent is verified.')}),
  rejectListing:el=>run('reject_listing',{id:el.dataset.id},{close:false,ok:'Listing rejected.'}),
  release:el=>run('release_payment',{id:el.dataset.id},{close:false,ok:'Released to the agent.'}),
+ viewDoc:async el=>{try{const u=await B.fileUrl(el.dataset.path);if(u)openExternal(u);}catch(e){toast(e.message);}},
  paidOut:el=>run('mark_paid_out',{id:el.dataset.id},{close:false,ok:'Marked as sent to the agent.'}),
  refund:el=>{S.modal={type:'confirm',title:'Refund this payment?',text:'The student gets the money back. For rent, the key is cancelled and the room returns to Available.',ok:'Refund',act:'refundYes',id:el.dataset.id,danger:true};renderModal();},
  refundYes:()=>run('refund_payment',{id:S.modal.id},{ok:PAYMODE==='paystack'?'Marked as refunded. Send the money back from your Paystack dashboard.':'Refunded.'}),
