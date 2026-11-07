@@ -24,7 +24,8 @@ await new Promise((res, rej) => {
 });
 
 const browser = await chromium.launch();
-const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1 });
+// A phone set to another timezone must still see Nigeria times.
+const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, timezoneId: process.env.E2E_TZ || 'America/New_York' });
 const page = await ctx.newPage();
 const errors = [];
 page.on('pageerror', e => errors.push('pageerror: ' + e.message));

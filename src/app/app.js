@@ -63,15 +63,17 @@ const p2=n=>String(n).padStart(2,'0');
 const now=()=>Date.now()+clockOffset;
 const uid=p=>p+Math.random().toString(36).slice(2,9);
 const payRef=()=>'PAY-'+Math.random().toString(36).slice(2,8).toUpperCase()+Math.floor(10+Math.random()*90);
-const fmtDate=t=>new Date(t).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
-const fmtSlot=t=>new Date(t).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+' · '+new Date(t).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+// All dates and times are shown and computed in Nigeria time (WAT, UTC+1), whatever the phone is set to.
+const TZ='Africa/Lagos',WAT=36e5;
+const fmtDate=t=>new Date(t).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:TZ});
+const fmtSlot=t=>new Date(t).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',timeZone:TZ})+' · '+new Date(t).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:TZ});
 const t12=s=>{const [h,m]=s.split(':').map(Number);return ((h%12)||12)+':'+p2(m)+(h<12?' AM':' PM');};
 const rel=t=>{const s=(now()-t)/1000; if(s<60)return 'just now'; if(s<3600)return Math.floor(s/60)+' min ago'; if(s<86400)return Math.floor(s/3600)+' h ago'; const d=Math.floor(s/86400); return d<30?d+' d ago':fmtDate(t);};
-const isoDate=t=>{const d=new Date(t);return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());};
+const isoDate=t=>{const d=new Date(t+WAT);return d.getUTCFullYear()+'-'+p2(d.getUTCMonth()+1)+'-'+p2(d.getUTCDate());};
 const initials=n=>n.split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
 const sum=(L,f)=>L.reduce((a,x)=>a+f(x),0);
 function genKey(){const A='ABCDEFGHJKMNPQRSTUVWXYZ23456789';const b=new Uint8Array(12);crypto.getRandomValues(b);let s='';for(let i=0;i<12;i++){s+=A[b[i]%A.length];if(i%4===3&&i<11)s+='-';}return 'LDG-'+s;}
-function slotAt(base,dayOff,hour,min=0){const d=new Date(base+dayOff*DAY);d.setHours(hour,min,0,0);return d.getTime();}
+function slotAt(base,dayOff,hour,min=0){const d=new Date(base+dayOff*DAY+WAT);return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate(),hour,min)-WAT;}
 function getPath(p){return p.split('.').reduce((o,k)=>o==null?o:o[k],S);}
 function setPath(p,v){const ks=p.split('.');let o=S;for(let i=0;i<ks.length-1;i++){if(o[ks[i]]==null)o[ks[i]]={};o=o[ks[i]];}o[ks[ks.length-1]]=v;}
 
@@ -178,7 +180,7 @@ const PHONE_RE=/^\+?\d[\d\s]{9,16}$/,EMAIL_RE=/^\S+@\S+\.\S+$/;
 const genCode=()=>String(Math.floor(100000+Math.random()*900000));
 const cur=()=>{const s=nav().stack;return s[s.length-1];};
 function save(){try{const o={};UI_KEYS.forEach(k=>{o[k]=S[k];});localStorage.setItem(STORE,JSON.stringify(o));}catch(e){}}
-function slotsFor(h){const out=[],base=now(),days=h.days&&h.days.length?h.days:[1,2,3,4,5,6],times=h.times&&h.times.length?h.times:['10:00'];for(let d=1;d<=14&&out.length<6;d++){const day=new Date(base+d*DAY);if(!days.includes(day.getDay()))continue;times.forEach(t=>{const [hh,mm]=t.split(':').map(Number);out.push(slotAt(base,d,hh,mm));});}return out.slice(0,6);}
+function slotsFor(h){const out=[],base=now(),days=h.days&&h.days.length?h.days:[1,2,3,4,5,6],times=h.times&&h.times.length?h.times:['10:00'];for(let d=1;d<=14&&out.length<6;d++){const day=new Date(base+d*DAY+WAT);if(!days.includes(day.getUTCDay()))continue;times.forEach(t=>{const [hh,mm]=t.split(':').map(Number);out.push(slotAt(base,d,hh,mm));});}return out.slice(0,6);}
 function cdText(end){let ms=Math.max(0,end-now());const d=Math.floor(ms/DAY);ms-=d*DAY;const h=Math.floor(ms/36e5);ms-=h*36e5;const m=Math.floor(ms/6e4);const s=Math.floor((ms-m*6e4)/1000);return {d,h:p2(h),m:p2(m),s:p2(s),str:`${d}d ${p2(h)}:${p2(m)}:${p2(s)}`};}
 
 /* ---------- illustrations ---------- */
@@ -491,7 +493,7 @@ V.house=({id})=>{
   ${S.role==='student'?inspectionBlock(h):''}
   <section class="block"><h2>Rooms</h2><ul class="rooms">${h.rooms.map(r=>roomRow(h,r)).join('')}</ul>
    ${h.shared?`<p class="note">${ic('users',16)} The owner allows shared rooms here. Each roommate pays their own share and gets their own key.</p>`:''}</section>
-  <section class="block"><h2>About this house</h2><p>${esc(h.desc)}</p><p class="small muted">${h.baths||1} bathroom${(h.baths||1)>1?'s':''} · ${h.availFrom&&new Date(h.availFrom+'T00:00').getTime()>now()?'Available from '+fmtDate(new Date(h.availFrom+'T00:00')):'Available now'} · Visits: ${daysLabel(h.days||[1,2,3,4,5,6])}</p><div class="chips">${h.amenities.map(x=>chip(esc(x))).join('')}</div>
+  <section class="block"><h2>About this house</h2><p>${esc(h.desc)}</p><p class="small muted">${h.baths||1} bathroom${(h.baths||1)>1?'s':''} · ${h.availFrom&&new Date(h.availFrom+'T00:00:00+01:00').getTime()>now()?'Available from '+fmtDate(new Date(h.availFrom+'T00:00:00+01:00')):'Available now'} · Visits: ${daysLabel(h.days||[1,2,3,4,5,6])}</p><div class="chips">${h.amenities.map(x=>chip(esc(x))).join('')}</div>
    <h3 class="sub">House rules</h3><ul class="rules">${h.rules.map(r=>`<li>${esc(r)}</li>`).join('')}</ul></section>
   <section class="block"><h2>Location</h2>${miniMap(h)}<p class="muted small">${esc(h.address)} · ${h.km} km to the OAU main gate, about ${travel(h).label}. Schematic map. The live app uses a street map with directions.</p></section>
   <section class="block"><div class="row-between"><h2>Complaints <span class="count-pill">${comps.length}</span></h2><button class="btn sm ghost" data-act="lodgeComplaint" data-id="${id}">${ic('flag',15)} Lodge a complaint</button></div>
@@ -646,7 +648,7 @@ V.student_saved=()=>{
 V.student_messages=()=>`${head('In-app messages','Chats')}${threadList(S.threads.filter(t=>t.studentId===MYID()).sort((a,b)=>(b.msgs.length?b.msgs[b.msgs.length-1].t:0)-(a.msgs.length?a.msgs[a.msgs.length-1].t:0)))}`;
 V.student_savings=()=>{
  const g=S.savings.goal,bal=savBal(),left=Math.max(0,g.target-bal),pct=Math.min(100,bal/g.target*100);
- const due=new Date(g.due+'T00:00').getTime(),days=Math.max(0,Math.ceil((due-now())/DAY)),locked=g.mode==='locked'&&now()<due;
+ const due=new Date(g.due+'T00:00:00+01:00').getTime(),days=Math.max(0,Math.ceil((due-now())/DAY)),locked=g.mode==='locked'&&now()<due;
  const tx=S.savings.txns.slice().sort((a,b)=>b.t-a.t);
  return `${head('Rent savings',esc(g.name))}
  <article class="savecard">
@@ -671,7 +673,7 @@ V.agent_home=()=>{
  const fees=sum(S.payments.filter(p=>p.kind==='inspection'&&p.status==='paid'&&ids.includes(p.houseId)),p=>p.amount*(1-COMM));
  const soon=S.ballots.filter(b=>ids.includes(b.houseId)&&(b.status==='open'||b.status==='drawn'));
  const visits=S.inspections.filter(i=>ids.includes(i.houseId)&&i.status==='booked').sort((x,y)=>x.slot-y.slot);
- const hr=new Date(now()).getHours(),greet=hr<12?'Good morning':hr<17?'Good afternoon':'Good evening';
+ const hr=new Date(now()+WAT).getUTCHours(),greet=hr<12?'Good morning':hr<17?'Good afternoon':'Good evening';
  return `${head(esc(a.biz),`${greet}, ${a.name.split(' ')[0]}`,`<div class="chips">${verBadge(a)}${chip('Trust score '+a.trust)}${chip('★ '+a.rating.toFixed(1),'brass')}</div>`)}
  <div class="stats four">${stat(fmt(fees),'Inspection fees earned')}${stat(fmt(paid),'Rent paid out to you')}${stat(fmt(held),'Rent held until move-in')}${stat(visits.length,'Visits booked')}</div>
  <div class="btns"><button class="btn sm ghost" data-act="push" data-v="payouts">${ic('wallet',16)} See payouts</button></div>
@@ -699,7 +701,7 @@ V.ahouse=({id})=>{
  ${h.mod==='rejected'?`<p class="note warn-t">${ic('alert',16)} <span>Admin did not approve this listing. Edit it and save to send it for review again.</span></p>`:''}
  ${h.mod==='removed'?`<p class="note warn-t">${ic('alert',16)} <span>Lodgely took this listing down: ${esc(h.removedReason||'')}${h.removedNote?'. '+esc(h.removedNote):''}. Current tenants are not affected. Contact support to appeal.</span></p>`:''}
  ${h.paused?`<p class="note">${ic('clock',16)} <span>Paused. Students can't find or book this house. Current tenants and their keys are not affected.</span></p>`:''}
- <section class="block"><h2>Details</h2><dl class="dl"><div><dt>Address</dt><dd>${esc(h.address)}</dd></div><div><dt>To OAU main gate</dt><dd>${h.km} km · ${travel(h).label}</dd></div><div><dt>Bathrooms</dt><dd>${h.baths||1}</dd></div><div><dt>Available</dt><dd>${h.availFrom&&new Date(h.availFrom+'T00:00').getTime()>now()?'From '+fmtDate(new Date(h.availFrom+'T00:00')):'Now'}</dd></div><div><dt>Amenities</dt><dd>${h.amenities.length?esc(h.amenities.join(', ')):'None listed'}</dd></div></dl></section>
+ <section class="block"><h2>Details</h2><dl class="dl"><div><dt>Address</dt><dd>${esc(h.address)}</dd></div><div><dt>To OAU main gate</dt><dd>${h.km} km · ${travel(h).label}</dd></div><div><dt>Bathrooms</dt><dd>${h.baths||1}</dd></div><div><dt>Available</dt><dd>${h.availFrom&&new Date(h.availFrom+'T00:00:00+01:00').getTime()>now()?'From '+fmtDate(new Date(h.availFrom+'T00:00:00+01:00')):'Now'}</dd></div><div><dt>Amenities</dt><dd>${h.amenities.length?esc(h.amenities.join(', ')):'None listed'}</dd></div></dl></section>
  <section class="block"><h2>Rooms</h2><ul class="rooms">${h.rooms.map(r=>{const ten=r.occ.map(c=>S.keys.find(k=>k.code===c)).filter(Boolean);
   return `<li class="room"><div class="room-main"><b>${esc(r.name)}</b><span class="muted small">${fmt(r.price)} a year${r.cap>1?` per person · ${Math.min(r.cap,curKeys(r).length)} of ${r.cap} taken`:''}</span>${ten.map(k=>k.start>now()?`<span class="small">${ic('key',13)} Next: ${esc(stu(k.studentId).name)} moves in ${fmtDate(k.start)} · <button class="link small" data-act="push" data-v="agreement" data-code="${k.code}">Agreement</button></span>`:`<span class="small">${ic('key',13)} ${esc(stu(k.studentId).name)} · <span class="mono" data-cd="${k.end}">${cdText(k.end).str}</span> · <button class="link small" data-act="push" data-v="agreement" data-code="${k.code}">Agreement</button></span>`).join('')}${holdActive(r)?`<span class="small" style="color:var(--warn)">${esc(stu(r.payHold.by).name)} is paying now · held until ${new Date(r.payHold.until).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}</span>`:''}${ballotsOf(r).map(b=>ballotLine(h,r,b)).join('')}</div>
   <div class="room-side">${h.shared?`<span class="stepper" role="group" aria-label="Spaces in ${esc(r.name)}"><button data-act="cap" data-h="${h.id}" data-r="${r.id}" data-d="-1" aria-label="Fewer spaces">−</button><span>${r.cap} space${r.cap>1?'s':''}</span><button data-act="cap" data-h="${h.id}" data-r="${r.id}" data-d="1" aria-label="More spaces">+</button></span>`:''}${roomChip(r)}${(r.occ.length<r.cap||r.paused)?`<button class="btn sm ghost" data-act="pauseRoom" data-h="${h.id}" data-r="${r.id}">${r.paused?'Resume':'Pause'}</button>`:''}</div></li>`;}).join('')}</ul></section>
@@ -1090,7 +1092,7 @@ MODALS.renew=m=>{
   <button class="btn block" data-act="renew" data-code="${k.code}">Renew now</button><button class="btn block ghost" data-act="later">Remind me later</button></div>`;
 };
 MODALS.goal=m=>{
- const favs=S.favs.map(house).filter(Boolean),g0=S.savings.goal,due0=new Date(g0.due+'T00:00').getTime(),lk=g0.mode==='locked'&&now()<due0;
+ const favs=S.favs.map(house).filter(Boolean),g0=S.savings.goal,due0=new Date(g0.due+'T00:00:00+01:00').getTime(),lk=g0.mode==='locked'&&now()<due0;
  return `${mhead('Edit savings goal')}
  ${favs.length?`<div class="field"><span class="lbl">Save for a house you liked</span><div class="amts">${favs.map(h=>`<button class="tog" data-act="goalHouse" data-id="${h.id}">${esc(h.title)} · ${fmtK(minPrice(h))}</button>`).join('')}</div></div>`:''}
  <div class="field"><label for="gn">Goal name</label><input id="gn" class="in" value="${esc(m.name)}" data-bind="modal.name"></div>
@@ -1109,7 +1111,7 @@ MODALS.deposit=m=>{
   ${m.err?`<p class="err">${esc(m.err)}</p>`:''}<button class="btn block" data-act="doDeposit">Add money</button><p class="fine">${testNote()}</p>`;
 };
 MODALS.withdraw=m=>{
- const g=S.savings.goal,due=new Date(g.due+'T00:00').getTime(),bal=savBal();
+ const g=S.savings.goal,due=new Date(g.due+'T00:00:00+01:00').getTime(),bal=savBal();
  if(g.mode==='locked'&&now()<due)return `${mhead('Withdraw')}<p>${ic('lock',16)} Your savings are locked until <b>${fmtDate(due)}</b>.</p><p class="muted">You chose a lock when you set this goal. You can still use the money for rent at checkout, or switch the goal to flexible for future deposits.</p><button class="btn block" data-act="closeModal">Got it</button>`;
  return `${mhead('Withdraw')}<p class="muted">Flexible savings: withdraw any amount, no fee. Balance ${fmt(bal)}.</p><div class="field"><label for="wd">Amount (₦)</label><input id="wd" class="in" inputmode="numeric" value="${esc(m.amt)}" data-bind="modal.amt"></div>${m.err?`<p class="err">${m.err}</p>`:''}<button class="btn block" data-act="doWithdraw">Withdraw</button>${PAYMODE==='paystack'?'<p class="fine">Withdrawals reach your bank or wallet within 24 hours.</p>':''}`;
 };
@@ -1943,7 +1945,7 @@ function scanQR(input){
 function receiptDoc(p){
  const h=house(p.houseId),r=p.roomId?room(h,p.roomId):null,k=S.keys.find(x=>x.payId===p.id),a=agent(h.agentId);
  const kind={inspection:'Inspection fee',rent:'Rent',renewal:'Renewal'}[p.kind];
- const rows=[['Receipt number',p.ref],['Date',`${fmtDate(p.time)}, ${new Date(p.time).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})}`],['Paid by',stu(p.studentId).name],['Paid to',`${a.biz} (${a.name}), through Lodgely`],['For',`${kind} · ${h.title}${r?', '+r.name:''}`],['Address',h.address]];
+ const rows=[['Receipt number',p.ref],['Date',`${fmtDate(p.time)}, ${new Date(p.time).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:TZ})}`],['Paid by',stu(p.studentId).name],['Paid to',`${a.biz} (${a.name}), through Lodgely`],['For',`${kind} · ${h.title}${r?', '+r.name:''}`],['Address',h.address]];
  if(p.kind==='inspection'){const i=S.inspections.find(x=>x.payId===p.id);if(i)rows.push(['Visit',fmtSlot(i.slot)]);}
  if(p.kind==='rent'&&k)rows.push(['Period',`${fmtDate(k.start)} to ${fmtDate(k.start+TERM*DAY)}`]);
  if(p.kind==='renewal')rows.push(['Period',`Another ${TERM} days`]);
