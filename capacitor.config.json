@@ -1,0 +1,15 @@
+{
+  "appId": "com.lodgely.app",
+  "appName": "Lodgely",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1200,
+      "backgroundColor": "#1B2A6B",
+      "showSpinner": false
+    }
+  }
+}

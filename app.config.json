@@ -1,0 +1,7 @@
+{
+  "name": "Lodgely",
+  "appId": "com.lodgely.app",
+  "keyPrefix": "LDG",
+  "school": { "code": "OAU", "name": "Obafemi Awolowo University", "city": "Ile-Ife" },
+  "supportEmail": ""
+}
