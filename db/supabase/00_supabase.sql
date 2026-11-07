@@ -41,14 +41,21 @@ language sql security definer as $$ delete from auth.users where id = u $$;
 -- Run once in the SQL editor to make yourself an admin:  select app.make_admin('you@example.com');
 create or replace function app.make_admin(p_email text) returns text
 language plpgsql security definer set search_path = app, public as $$
-declare u uuid;
+declare u uuid; n int;
 begin
-  select id into u from app.profiles where lower(email) = lower(p_email);
-  if u is null then return 'No account with that email. Sign up in the app first.'; end if;
+  select count(*) into n from auth.users where lower(email) = lower(p_email);
+  if n = 0 then return 'No account with that email. Sign up in the app first.'; end if;
+  if n > 1 then return 'More than one login uses that email. Check auth.users first.'; end if;
+  select id into u from auth.users where lower(email) = lower(p_email);
+  if not exists (select 1 from app.profiles where id = u) then return 'That login has no profile yet. Open the app once, then try again.'; end if;
   delete from app.agents where id = u and not exists (select 1 from app.houses where agent_id = u);
   update app.profiles set role = 'admin' where id = u;
   return 'Done. Log out and back in.';
 end $$;
+
+-- Used by the paystack-resolve edge function (service role only).
+create or replace function public.user_role(p_user uuid) returns text
+language sql stable security definer set search_path = app, public as $$ select app.role_of(p_user) $$;
 
 -- Used by storage policies (they run as the signed-in user, who can't read app.*).
 create or replace function public.is_admin() returns boolean
@@ -94,6 +101,8 @@ revoke all on schema app from public, anon, authenticated;
 revoke execute on function public.payment_for_provider(text) from public, anon, authenticated;
 revoke execute on function public.payment_confirmed(text, bigint, text, text) from public, anon, authenticated;
 revoke execute on function public.set_payout_verified(uuid, text, text, text) from public, anon, authenticated;
+revoke execute on function public.user_role(uuid) from public, anon, authenticated;
+grant execute on function public.user_role(uuid) to service_role;
 grant execute on function public.payment_for_provider(text) to service_role;
 grant execute on function public.payment_confirmed(text, bigint, text, text) to service_role;
 grant execute on function public.set_payout_verified(uuid, text, text, text) to service_role;

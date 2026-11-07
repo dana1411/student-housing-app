@@ -68,7 +68,7 @@ test('agent extras', async () => {
   await db.call('post_tenant_complaint', { code: k.code, text: 'Late with bills' });
   assert.match((await db.call('check_payout', { acct: '0123456789' })).name, /KUNLE/);
   await db.call('save_payout', { bank: 'GTBank', acct: '0123456789' });
-  await db.call('save_profile', { email: 'k@example.com', bio: 'Hello' });
+  await db.call('save_profile', { email: 'kunle@example.com', bio: 'Hello' });
   await db.call('save_prefs', { prefs: { visits: { email: true, sms: false } } });
   await db.call('set_phone', { phone: '0803 000 1111' });
   await db.call('note_password_changed', {});

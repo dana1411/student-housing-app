@@ -8,7 +8,7 @@ begin
     delete from app.favs where student_id = u and house_id = hid;
     return jsonb_build_object('saved', false);
   end if;
-  if not exists (select 1 from app.houses where id = hid and not deleted) then perform app.fail('This house is no longer listed.'); end if;
+  if not exists (select 1 from app.houses h where h.id = hid and app.house_live(h)) then perform app.fail('This house is no longer listed.'); end if;
   insert into app.favs(student_id, house_id, created_at) values (u, hid, app.now());
   return jsonb_build_object('saved', true);
 end $$;
@@ -20,8 +20,14 @@ declare u uuid := app.need_student(); i app.inspections; h app.houses;
 begin
   select * into i from app.inspections where id = (a->>'id')::uuid and student_id = u for update;
   if i.id is null or i.status <> 'booked' then perform app.fail('This visit is not open any more.'); end if;
+  if i.code_tries >= 5 then
+    perform app.fail('Too many wrong codes. Ask the agent to mark the visit as done on their app.');
+  end if;
   if trim(coalesce(a->>'code', '')) <> i.code then
-    perform app.fail('That code does not match. Ask the agent to show the code on their {{APP_NAME}} app.');
+    update app.inspections set code_tries = code_tries + 1 where id = i.id;
+    return jsonb_build_object('error', case when i.code_tries + 1 >= 5
+      then 'Too many wrong codes. Ask the agent to mark the visit as done on their app.'
+      else 'That code does not match. Ask the agent to show the code on their {{APP_NAME}} app.' end);
   end if;
   perform app.complete_visit(i.id);
   select * into h from app.houses where id = i.house_id;
@@ -128,7 +134,7 @@ begin
   update app.payments set status = 'refunded', refunded_at = app.now(),
     meta = meta || case when p.provider = 'paystack' then jsonb_build_object('refund_needed', true) else '{}'::jsonb end
    where id = pid;
-  if p.savings_used > 0 then
+  if p.savings_used > 0 and exists (select 1 from app.savings_txns where payment_id = p.id and type = 'applied') then
     insert into app.savings_txns(student_id, type, amt, note, payment_id, created_at)
     values (p.student_id, 'deposit', p.savings_used, 'Refund returned to savings', p.id, app.now());
   end if;
@@ -201,6 +207,9 @@ declare u uuid := app.need_student(true); k app.keys; b app.ballots; h app.house
 begin
   select * into k from app.keys where code = a->>'code' and student_id = u and status = 'active' for update;
   if k.id is null then perform app.fail('This key is no longer active.'); end if;
+  if exists (select 1 from app.ballots where key_id = k.id and status in ('drawn', 'filled')) then
+    perform app.fail('The ballot for your room has already been drawn.');
+  end if;
   update app.keys set not_renewing = true where id = k.id;
   draw := least(k.end_at, app.now() + interval '2 days');
   select * into b from app.ballots where key_id = k.id and status = 'open';
@@ -274,9 +283,11 @@ begin
   if about not in ('house', 'agent') then about := 'house'; end if;
   select * into h from app.houses where id = (a->>'houseId')::uuid;
   if h.id is null then perform app.fail('House not found.'); end if;
+  if not exists (select 1 from app.keys where student_id = u and house_id = h.id and status <> 'cancelled') then
+    perform app.fail('Only people who rented through {{APP_NAME}} can post complaints about a house.');
+  end if;
   insert into app.complaints(kind, author_id, author_name, author_role, about, house_id, agent_id, body, status, created_at)
-  values ('public', u, app.short_name(u),
-          case when exists (select 1 from app.keys where student_id = u and house_id = h.id) then 'tenant' else 'student' end,
+  values ('public', u, app.short_name(u), 'tenant',
           about, h.id, h.agent_id, txt, 'open', app.now());
   perform app.note(h.agent_id, format('%s posted a complaint about %s. You can reply from Account.', app.short_name(u),
     case when about = 'agent' then 'you' else h.title end));

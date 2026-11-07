@@ -127,6 +127,10 @@ test('agent creates a listing, admin approves, students see it', async () => {
   st = await db.state();
   const h2 = st.houses.find(x => x.id === r.id);
   assert.equal(h2.title, 'Test Lodge 2');
+  assert.equal(h2.mod, 'pending', 'a new name goes back to review');
+  await db.as('admin');
+  await db.call('approve_listing', { id: r.id });
+  await db.as('a1');
   assert.deepEqual(h2.rooms.map(x => [x.name, x.price, x.cap]), [['Room One', 155000, 3]]);
 
   // pause, can't delete with a booked visit, then delete

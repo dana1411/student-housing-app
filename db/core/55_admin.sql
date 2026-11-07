@@ -113,7 +113,8 @@ language plpgsql security definer set search_path = app, public as $$
 declare u uuid := app.need_admin(); id_ uuid := (a->>'id')::uuid;
 begin
   if a->>'k' = 'agent' then
-    update app.agents set status = 'verified', suspend_reason = null where id = id_;
+    update app.agents set status = 'verified', suspend_reason = null where id = id_ and status = 'suspended';
+    if not found then perform app.fail('Only suspended agents can be restored. Approve new agents from their application.'); end if;
     perform app.note(id_, 'Your {{APP_NAME}} account is active again. Your houses are back in search.');
   else
     update app.profiles set suspended = false, suspend_reason = null where id = id_;

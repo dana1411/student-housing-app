@@ -89,6 +89,7 @@ begin
   for k in select k2.*, r.price, r.name as rname, r.cap, h.title, h.agent_id
              from app.keys k2 join app.rooms r on r.id = k2.room_id join app.houses h on h.id = k2.house_id
             where k2.status = 'active' and k2.end_at <= t for update of k2 loop
+    perform 1 from app.profiles where id = k.student_id for update;
     if k.auto_renew and app.savings_balance(k.student_id) >= k.price
        and not exists (select 1 from app.ballots where key_id = k.id and status in ('drawn', 'filled')) then
       insert into app.payments(kind, student_id, house_id, room_id, amount, savings_used, method, ref, status, created_at, paid_at, released_at, meta)
@@ -216,4 +217,24 @@ begin
   perform app.need_demo();
   update app.settings set shift_ms = greatest(0, coalesce((a->>'shift')::bigint, 0));
   return jsonb_build_object('changed', app.run_jobs(), 'shift', (app.cfg()).shift_ms);
+end $$;
+
+-- Run once when you switch from test payments to Paystack:  select app.go_live();
+-- Removes test bookings, payments, keys, ballots and savings (made with simulated money),
+-- keeps accounts, listings, chats and complaints, and turns on Paystack.
+create or replace function app.go_live() returns text
+language plpgsql as $$
+begin
+  update app.complaints set payment_id = null where payment_id is not null;
+  delete from app.savings_txns;
+  delete from app.ballot_entries;
+  delete from app.ballots;
+  delete from app.keys;
+  delete from app.inspections;
+  delete from app.payments;
+  delete from app.hold_log;
+  update app.savings_goals set next_auto = null, sched = 'none';
+  update app.rooms set hold_ballot = null, pay_hold_by = null, pay_hold_until = null;
+  update app.settings set payment_mode = 'paystack', demo = false, shift_ms = 0;
+  return 'Live: test bookings and payments cleared, Paystack is on.';
 end $$;

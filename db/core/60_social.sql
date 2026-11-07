@@ -13,6 +13,10 @@ declare u uuid := app.need_student(); h app.houses; tid uuid;
 begin
   select * into h from app.houses where id = (a->>'houseId')::uuid and not deleted;
   if h.id is null then perform app.fail('House not found.'); end if;
+  if not app.house_live(h) and not exists (select 1 from app.threads where house_id = h.id and student_id = u)
+     and not exists (select 1 from app.keys where house_id = h.id and student_id = u) then
+    perform app.fail('This house is not taking messages right now.');
+  end if;
   insert into app.threads(house_id, student_id, agent_id, created_at) values (h.id, u, h.agent_id, app.now())
   on conflict (house_id, student_id) do nothing;
   select id into tid from app.threads where house_id = h.id and student_id = u;
@@ -138,9 +142,10 @@ create or replace function public.save_profile(a jsonb) returns jsonb
 language plpgsql security definer set search_path = app, public as $$
 declare u uuid := app.need_login(); e text := trim(coalesce(a->>'email', ''));
 begin
-  if a ? 'email' and e <> '' and e !~ '^\S+@\S+\.\S+$' then perform app.fail('Enter a valid email address.'); end if;
+  if a ? 'email' and lower(e) is distinct from lower((select email from app.profiles where id = u)) then
+    perform app.fail('Your email is your login. Contact support to change it.');
+  end if;
   update app.profiles set
-    email = case when a ? 'email' and e <> '' then e else email end,
     dept = case when a ? 'dept' and trim(a->>'dept') <> '' then trim(a->>'dept') else dept end,
     photo = case when a ? 'photo' then nullif(a->>'photo', '') else photo end,
     name = case when a ? 'name' and trim(a->>'name') <> '' then trim(a->>'name') else name end

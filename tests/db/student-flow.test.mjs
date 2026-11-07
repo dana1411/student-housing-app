@@ -45,7 +45,8 @@ test('inspection → visit code → rent → key → move-in releases rent', asy
   assert.ok(st.threads.some(t => t.houseId === ids.h1 && t.studentId === ids.s1), 'chat opened with a confirmation');
 
   await db.as('s1');
-  await db.fails('confirm_visit', { id: ins.id, code: '0000' === ins.code ? '1111' : '0000' }, /does not match/);
+  const wrong = await db.call('confirm_visit', { id: ins.id, code: '0000' === ins.code ? '1111' : '0000' });
+  assert.match(wrong.error, /does not match/);
   await db.call('confirm_visit', { id: ins.id, code: ins.code });
   const rated = await db.call('rate_visit', { id: ins.id, n: 5 });
   assert.equal(rated.ratings, 24);

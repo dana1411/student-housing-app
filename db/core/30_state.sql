@@ -172,9 +172,14 @@ begin
   ),
   comp_j as (
     select coalesce(jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
-      'id', cp.id, 'kind', cp.kind, 'authorId', cp.author_id, 'authorName', cp.author_name,
+      'id', cp.id, 'kind', cp.kind,
+      'authorId', case when v_role = 'admin' or cp.author_id = u or app.role_of(cp.author_id) = 'agent' then cp.author_id end,
+      'authorName', cp.author_name,
       'authorRole', cp.author_role, 'about', cp.about, 'houseId', cp.house_id, 'agentId', cp.agent_id,
-      'tenantId', cp.tenant_id, 'tenantName', cp.tenant_name, 'reason', cp.reason, 'payId', cp.payment_id,
+      'tenantId', case when v_role = 'admin' or cp.tenant_id = u or cp.agent_id = u then cp.tenant_id end,
+      'tenantName', case when v_role = 'admin' or cp.tenant_id = u or cp.agent_id = u or cp.tenant_name is null then cp.tenant_name
+                         else split_part(cp.tenant_name, ' ', 1) || ' ' || left(split_part(cp.tenant_name, ' ', 2), 1) || '.' end,
+      'reason', cp.reason, 'payId', case when v_role = 'admin' or cp.author_id = u or cp.agent_id = u then cp.payment_id end,
       'text', cp.body, 'status', cp.status, 'reply', cp.reply, 'replyBy', cp.reply_by,
       'removed', cp.removed, 't', app.ms(cp.created_at)
     )) order by cp.created_at desc), '[]'::jsonb) as j

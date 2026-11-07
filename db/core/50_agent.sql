@@ -26,6 +26,9 @@ begin
     select * into h from app.houses where id = (a->>'editId')::uuid and agent_id = u and not deleted for update;
     if h.id is null then perform app.fail('Listing not found.'); end if;
     was_rejected := h.mod = 'rejected';
+    -- changing what the place is (name, address, area, photos) needs admin review again
+    was_rejected := was_rejected or (h.mod = 'live' and (h.title is distinct from v_title or h.address is distinct from v_address
+                      or h.area is distinct from coalesce(a->>'area', h.area) or h.photos is distinct from v_photos));
     update app.houses set title = v_title, area = coalesce(a->>'area', area), address = v_address,
       km = coalesce((a->>'km')::numeric, km), type = coalesce(a->>'type', type), descr = coalesce(nullif(trim(a->>'desc'), ''), 'No description yet.'),
       amenities = coalesce(array(select jsonb_array_elements_text(a->'amenities')), '{}'),
@@ -60,7 +63,7 @@ begin
      where r.house_id = h.id and not (r.id = any (keep)) and not r.archived
        and app.active_count(r.id) = 0 and r.hold_ballot is null
        and not exists (select 1 from app.ballots b where b.room_id = r.id and b.status in ('open', 'drawn'));
-    perform app.note(null, format('%s %s %s.', app.pname(u), case when was_rejected then 'resubmitted' else 'edited' end, v_title));
+    perform app.note(null, format('%s %s %s.', app.pname(u), case when was_rejected then 'sent for review:' else 'edited' end, v_title));
     select * into h from app.houses where id = h.id;
     return jsonb_build_object('id', h.id, 'mod', h.mod, 'resubmitted', was_rejected);
   end if;

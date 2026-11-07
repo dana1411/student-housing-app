@@ -89,6 +89,14 @@ create table if not exists app.rooms (
 );
 create index if not exists rooms_house on app.rooms(house_id);
 
+-- Each new 15-minute room hold, to stop one student blocking a room forever.
+create table if not exists app.hold_log (
+  student_id uuid not null,
+  room_id    uuid not null,
+  at         timestamptz not null default now()
+);
+create index if not exists hold_log_idx on app.hold_log(student_id, room_id, at);
+
 create table if not exists app.payments (
   id             uuid primary key default gen_random_uuid(),
   kind           text not null check (kind in ('inspection','rent','renewal','deposit')),
@@ -141,6 +149,7 @@ create table if not exists app.inspections (
   payment_id  uuid references app.payments(id),
   status      text not null default 'booked' check (status in ('booked','completed','cancelled','stuCancelled','noshow','missed')),
   code        text not null,
+  code_tries  int not null default 0,
   rating      int check (rating between 1 and 5),
   mismatch    boolean not null default false,
   moves       int not null default 0,
@@ -291,6 +300,8 @@ create table if not exists public.pings (
 alter table public.pings enable row level security;
 drop policy if exists pings_own on public.pings;
 create policy pings_own on public.pings for select using (user_id = auth.uid());
+
+alter table app.inspections add column if not exists code_tries int not null default 0;
 
 do $$ declare t text; begin
   for t in select tablename from pg_tables where schemaname = 'app' loop

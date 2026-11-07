@@ -213,6 +213,14 @@ create table if not exists app.rooms (
 );
 create index if not exists rooms_house on app.rooms(house_id);
 
+-- Each new 15-minute room hold, to stop one student blocking a room forever.
+create table if not exists app.hold_log (
+  student_id uuid not null,
+  room_id    uuid not null,
+  at         timestamptz not null default now()
+);
+create index if not exists hold_log_idx on app.hold_log(student_id, room_id, at);
+
 create table if not exists app.payments (
   id             uuid primary key default gen_random_uuid(),
   kind           text not null check (kind in ('inspection','rent','renewal','deposit')),
@@ -265,6 +273,7 @@ create table if not exists app.inspections (
   payment_id  uuid references app.payments(id),
   status      text not null default 'booked' check (status in ('booked','completed','cancelled','stuCancelled','noshow','missed')),
   code        text not null,
+  code_tries  int not null default 0,
   rating      int check (rating between 1 and 5),
   mismatch    boolean not null default false,
   moves       int not null default 0,
@@ -415,6 +424,8 @@ create table if not exists public.pings (
 alter table public.pings enable row level security;
 drop policy if exists pings_own on public.pings;
 create policy pings_own on public.pings for select using (user_id = auth.uid());
+
+alter table app.inspections add column if not exists code_tries int not null default 0;
 
 do $$ declare t text; begin
   for t in select tablename from pg_tables where schemaname = 'app' loop
@@ -735,9 +746,14 @@ begin
   ),
   comp_j as (
     select coalesce(jsonb_agg(jsonb_strip_nulls(jsonb_build_object(
-      'id', cp.id, 'kind', cp.kind, 'authorId', cp.author_id, 'authorName', cp.author_name,
+      'id', cp.id, 'kind', cp.kind,
+      'authorId', case when v_role = 'admin' or cp.author_id = u or app.role_of(cp.author_id) = 'agent' then cp.author_id end,
+      'authorName', cp.author_name,
       'authorRole', cp.author_role, 'about', cp.about, 'houseId', cp.house_id, 'agentId', cp.agent_id,
-      'tenantId', cp.tenant_id, 'tenantName', cp.tenant_name, 'reason', cp.reason, 'payId', cp.payment_id,
+      'tenantId', case when v_role = 'admin' or cp.tenant_id = u or cp.agent_id = u then cp.tenant_id end,
+      'tenantName', case when v_role = 'admin' or cp.tenant_id = u or cp.agent_id = u or cp.tenant_name is null then cp.tenant_name
+                         else split_part(cp.tenant_name, ' ', 1) || ' ' || left(split_part(cp.tenant_name, ' ', 2), 1) || '.' end,
+      'reason', cp.reason, 'payId', case when v_role = 'admin' or cp.author_id = u or cp.agent_id = u then cp.payment_id end,
       'text', cp.body, 'status', cp.status, 'reply', cp.reply, 'replyBy', cp.reply_by,
       'removed', cp.removed, 't', app.ms(cp.created_at)
     )) order by cp.created_at desc), '[]'::jsonb) as j
@@ -839,6 +855,16 @@ end $$;
 --     payment_confirmed(), which only the service role may run.
 -- Either way app.finalize_payment() applies the effects exactly once.
 
+-- At most 3 holds per student per room per day, so nobody can keep a room blocked.
+create or replace function app.log_hold(u uuid, rid uuid) returns void
+language plpgsql as $$
+begin
+  if (select count(*) from app.hold_log where student_id = u and room_id = rid and at > app.now() - interval '24 hours') >= 3 then
+    perform app.fail('You have held this room 3 times today. Other students get a turn now. Try again tomorrow.');
+  end if;
+  insert into app.hold_log(student_id, room_id, at) values (u, rid, app.now());
+end $$;
+
 -- Hold a room for a few minutes while the student pays, so nobody else can take it.
 create or replace function public.hold_room(a jsonb) returns jsonb
 language plpgsql security definer set search_path = app, public as $$
@@ -855,6 +881,7 @@ begin
   end if;
   if st = 'pending' then perform app.fail('Another student is paying for this room right now. Try again in a few minutes.'); end if;
   if st <> 'open' then perform app.fail('Someone else just secured this room.'); end if;
+  perform app.log_hold(u, r.id);
   -- one hold per student
   update app.rooms set pay_hold_by = null, pay_hold_until = null where pay_hold_by = u and id <> r.id;
   update app.rooms set pay_hold_by = u, pay_hold_until = app.now() + make_interval(mins => c.hold_minutes)
@@ -881,7 +908,7 @@ declare
   amount int; sv int := 0; slot timestamptz; meta jsonb := '{}'::jsonb;
   pid uuid; ref text; method text := coalesce(nullif(a->>'method', ''), 'Card');
 begin
-  if kind not in ('inspection', 'rent', 'renewal', 'deposit') then perform app.fail('Unknown payment.'); end if;
+  if kind is null or kind not in ('inspection', 'rent', 'renewal', 'deposit') then perform app.fail('Unknown payment.'); end if;
   u := app.need_student();
 
   if kind = 'inspection' then
@@ -913,6 +940,7 @@ begin
     else
       if not app.house_live(h) then perform app.fail('This house is not taking bookings right now.'); end if;
       if app.room_state(r) = 'open' then
+        perform app.log_hold(u, r.id);
         update app.rooms set pay_hold_by = null, pay_hold_until = null where pay_hold_by = u and id <> r.id;
         update app.rooms set pay_hold_by = u, pay_hold_until = t + make_interval(mins => c.hold_minutes) where id = r.id;
       elsif not (app.room_state(r) = 'pending' and r.pay_hold_by = u) then
@@ -969,12 +997,24 @@ begin
   if p.status <> 'pending' then return coalesce(p.meta->'result', jsonb_build_object('ref', p.ref)); end if;
   select * into h from app.houses where id = p.house_id;
   sname := app.pname(p.student_id);
+  -- one money operation per student at a time (savings can't be spent twice)
+  perform 1 from app.profiles where id = p.student_id for update;
 
   if p.savings_used > 0 and app.savings_balance(p.student_id) < p.savings_used then
     res := jsonb_build_object('error', 'Your savings balance changed while you were paying. Any money taken will be refunded.');
     update app.payments set status = 'failed', provider_txn = finalize_payment.provider_txn,
       meta = meta || jsonb_build_object('result', res, 'refund_needed', p.amount > p.savings_used and p.provider <> 'simulated')
      where id = p.id;
+    return res;
+  end if;
+
+  if p.kind = 'inspection' and app.ts((p.meta->>'slot')::bigint) <= t then
+    res := jsonb_build_object('error', 'That visit time has passed. Any money taken will be refunded. Book another time.');
+    update app.payments set status = 'failed', provider_txn = finalize_payment.provider_txn,
+      meta = meta || jsonb_build_object('result', res, 'refund_needed', p.provider <> 'simulated') where id = p.id;
+    if p.provider <> 'simulated' then
+      perform app.note(null, format('Payment %s for a visit at %s arrived after the visit time. Refund %s to %s.', p.ref, h.title, app.naira(p.amount), sname));
+    end if;
     return res;
   end if;
 
@@ -1000,7 +1040,9 @@ begin
     select * into r from app.rooms where id = p.room_id for update;
     if p.meta ? 'ballot_id' then
       select * into b from app.ballots where id = (p.meta->>'ballot_id')::uuid for update;
-      ok := b.status = 'drawn' and b.draw_order[b.offer_idx + 1] = p.student_id;
+      ok := b.status = 'drawn' and b.draw_order[b.offer_idx + 1] = p.student_id
+        -- the room must have space for the whole new term
+        and (select count(*) from app.keys x where x.room_id = r.id and x.status = 'active' and x.end_at > app.ballot_start(b)) < r.cap;
       if not ok then res := jsonb_build_object('error', 'This ballot offer is no longer yours. Any money taken will be refunded.'); end if;
     else
       ok := app.room_state(r) = 'open' or (app.room_state(r) = 'pending' and r.pay_hold_by = p.student_id);
@@ -1098,7 +1140,7 @@ declare u uuid := app.need_login(); p app.payments;
 begin
   select * into p from app.payments where ref = a->>'ref' and student_id = u;
   if p.id is null then perform app.fail('Payment not found.'); end if;
-  if p.provider <> 'simulated' then perform app.fail('This payment goes through Paystack.'); end if;
+  if p.provider <> 'simulated' or (app.cfg()).payment_mode <> 'simulated' then perform app.fail('This payment goes through Paystack.'); end if;
   if (a->>'fail')::boolean then
     update app.payments set status = 'failed' where id = p.id and status = 'pending';
     return jsonb_build_object('error', 'The payment did not go through. You have not been charged.');
@@ -1143,6 +1185,12 @@ declare p app.payments;
 begin
   select * into p from app.payments where ref = p_ref for update;
   if p.id is null then return jsonb_build_object('error', 'unknown reference'); end if;
+  -- money arrived after the checkout was cancelled or timed out: try to apply it anyway
+  -- (finalize refuses and flags a refund if the room or visit is no longer available)
+  if p.status = 'expired' then
+    update app.payments set status = 'pending' where id = p.id;
+    p.status := 'pending';
+  end if;
   if p.status <> 'pending' then return coalesce(p.meta->'result', jsonb_build_object('ref', p.ref)); end if;
   if p_amount_kobo <> (p.amount - p.savings_used)::bigint * 100 then
     update app.payments set status = 'failed', provider_txn = p_txn,
@@ -1167,7 +1215,7 @@ begin
     delete from app.favs where student_id = u and house_id = hid;
     return jsonb_build_object('saved', false);
   end if;
-  if not exists (select 1 from app.houses where id = hid and not deleted) then perform app.fail('This house is no longer listed.'); end if;
+  if not exists (select 1 from app.houses h where h.id = hid and app.house_live(h)) then perform app.fail('This house is no longer listed.'); end if;
   insert into app.favs(student_id, house_id, created_at) values (u, hid, app.now());
   return jsonb_build_object('saved', true);
 end $$;
@@ -1179,8 +1227,14 @@ declare u uuid := app.need_student(); i app.inspections; h app.houses;
 begin
   select * into i from app.inspections where id = (a->>'id')::uuid and student_id = u for update;
   if i.id is null or i.status <> 'booked' then perform app.fail('This visit is not open any more.'); end if;
+  if i.code_tries >= 5 then
+    perform app.fail('Too many wrong codes. Ask the agent to mark the visit as done on their app.');
+  end if;
   if trim(coalesce(a->>'code', '')) <> i.code then
-    perform app.fail('That code does not match. Ask the agent to show the code on their Lodgely app.');
+    update app.inspections set code_tries = code_tries + 1 where id = i.id;
+    return jsonb_build_object('error', case when i.code_tries + 1 >= 5
+      then 'Too many wrong codes. Ask the agent to mark the visit as done on their app.'
+      else 'That code does not match. Ask the agent to show the code on their Lodgely app.' end);
   end if;
   perform app.complete_visit(i.id);
   select * into h from app.houses where id = i.house_id;
@@ -1287,7 +1341,7 @@ begin
   update app.payments set status = 'refunded', refunded_at = app.now(),
     meta = meta || case when p.provider = 'paystack' then jsonb_build_object('refund_needed', true) else '{}'::jsonb end
    where id = pid;
-  if p.savings_used > 0 then
+  if p.savings_used > 0 and exists (select 1 from app.savings_txns where payment_id = p.id and type = 'applied') then
     insert into app.savings_txns(student_id, type, amt, note, payment_id, created_at)
     values (p.student_id, 'deposit', p.savings_used, 'Refund returned to savings', p.id, app.now());
   end if;
@@ -1360,6 +1414,9 @@ declare u uuid := app.need_student(true); k app.keys; b app.ballots; h app.house
 begin
   select * into k from app.keys where code = a->>'code' and student_id = u and status = 'active' for update;
   if k.id is null then perform app.fail('This key is no longer active.'); end if;
+  if exists (select 1 from app.ballots where key_id = k.id and status in ('drawn', 'filled')) then
+    perform app.fail('The ballot for your room has already been drawn.');
+  end if;
   update app.keys set not_renewing = true where id = k.id;
   draw := least(k.end_at, app.now() + interval '2 days');
   select * into b from app.ballots where key_id = k.id and status = 'open';
@@ -1433,9 +1490,11 @@ begin
   if about not in ('house', 'agent') then about := 'house'; end if;
   select * into h from app.houses where id = (a->>'houseId')::uuid;
   if h.id is null then perform app.fail('House not found.'); end if;
+  if not exists (select 1 from app.keys where student_id = u and house_id = h.id and status <> 'cancelled') then
+    perform app.fail('Only people who rented through Lodgely can post complaints about a house.');
+  end if;
   insert into app.complaints(kind, author_id, author_name, author_role, about, house_id, agent_id, body, status, created_at)
-  values ('public', u, app.short_name(u),
-          case when exists (select 1 from app.keys where student_id = u and house_id = h.id) then 'tenant' else 'student' end,
+  values ('public', u, app.short_name(u), 'tenant',
           about, h.id, h.agent_id, txt, 'open', app.now());
   perform app.note(h.agent_id, format('%s posted a complaint about %s. You can reply from Account.', app.short_name(u),
     case when about = 'agent' then 'you' else h.title end));
@@ -1540,6 +1599,9 @@ begin
     select * into h from app.houses where id = (a->>'editId')::uuid and agent_id = u and not deleted for update;
     if h.id is null then perform app.fail('Listing not found.'); end if;
     was_rejected := h.mod = 'rejected';
+    -- changing what the place is (name, address, area, photos) needs admin review again
+    was_rejected := was_rejected or (h.mod = 'live' and (h.title is distinct from v_title or h.address is distinct from v_address
+                      or h.area is distinct from coalesce(a->>'area', h.area) or h.photos is distinct from v_photos));
     update app.houses set title = v_title, area = coalesce(a->>'area', area), address = v_address,
       km = coalesce((a->>'km')::numeric, km), type = coalesce(a->>'type', type), descr = coalesce(nullif(trim(a->>'desc'), ''), 'No description yet.'),
       amenities = coalesce(array(select jsonb_array_elements_text(a->'amenities')), '{}'),
@@ -1574,7 +1636,7 @@ begin
      where r.house_id = h.id and not (r.id = any (keep)) and not r.archived
        and app.active_count(r.id) = 0 and r.hold_ballot is null
        and not exists (select 1 from app.ballots b where b.room_id = r.id and b.status in ('open', 'drawn'));
-    perform app.note(null, format('%s %s %s.', app.pname(u), case when was_rejected then 'resubmitted' else 'edited' end, v_title));
+    perform app.note(null, format('%s %s %s.', app.pname(u), case when was_rejected then 'sent for review:' else 'edited' end, v_title));
     select * into h from app.houses where id = h.id;
     return jsonb_build_object('id', h.id, 'mod', h.mod, 'resubmitted', was_rejected);
   end if;
@@ -1918,7 +1980,8 @@ language plpgsql security definer set search_path = app, public as $$
 declare u uuid := app.need_admin(); id_ uuid := (a->>'id')::uuid;
 begin
   if a->>'k' = 'agent' then
-    update app.agents set status = 'verified', suspend_reason = null where id = id_;
+    update app.agents set status = 'verified', suspend_reason = null where id = id_ and status = 'suspended';
+    if not found then perform app.fail('Only suspended agents can be restored. Approve new agents from their application.'); end if;
     perform app.note(id_, 'Your Lodgely account is active again. Your houses are back in search.');
   else
     update app.profiles set suspended = false, suspend_reason = null where id = id_;
@@ -2060,6 +2123,10 @@ declare u uuid := app.need_student(); h app.houses; tid uuid;
 begin
   select * into h from app.houses where id = (a->>'houseId')::uuid and not deleted;
   if h.id is null then perform app.fail('House not found.'); end if;
+  if not app.house_live(h) and not exists (select 1 from app.threads where house_id = h.id and student_id = u)
+     and not exists (select 1 from app.keys where house_id = h.id and student_id = u) then
+    perform app.fail('This house is not taking messages right now.');
+  end if;
   insert into app.threads(house_id, student_id, agent_id, created_at) values (h.id, u, h.agent_id, app.now())
   on conflict (house_id, student_id) do nothing;
   select id into tid from app.threads where house_id = h.id and student_id = u;
@@ -2185,9 +2252,10 @@ create or replace function public.save_profile(a jsonb) returns jsonb
 language plpgsql security definer set search_path = app, public as $$
 declare u uuid := app.need_login(); e text := trim(coalesce(a->>'email', ''));
 begin
-  if a ? 'email' and e <> '' and e !~ '^\S+@\S+\.\S+$' then perform app.fail('Enter a valid email address.'); end if;
+  if a ? 'email' and lower(e) is distinct from lower((select email from app.profiles where id = u)) then
+    perform app.fail('Your email is your login. Contact support to change it.');
+  end if;
   update app.profiles set
-    email = case when a ? 'email' and e <> '' then e else email end,
     dept = case when a ? 'dept' and trim(a->>'dept') <> '' then trim(a->>'dept') else dept end,
     photo = case when a ? 'photo' then nullif(a->>'photo', '') else photo end,
     name = case when a ? 'name' and trim(a->>'name') <> '' then trim(a->>'name') else name end
@@ -2346,6 +2414,7 @@ begin
   for k in select k2.*, r.price, r.name as rname, r.cap, h.title, h.agent_id
              from app.keys k2 join app.rooms r on r.id = k2.room_id join app.houses h on h.id = k2.house_id
             where k2.status = 'active' and k2.end_at <= t for update of k2 loop
+    perform 1 from app.profiles where id = k.student_id for update;
     if k.auto_renew and app.savings_balance(k.student_id) >= k.price
        and not exists (select 1 from app.ballots where key_id = k.id and status in ('drawn', 'filled')) then
       insert into app.payments(kind, student_id, house_id, room_id, amount, savings_used, method, ref, status, created_at, paid_at, released_at, meta)
@@ -2473,6 +2542,26 @@ begin
   perform app.need_demo();
   update app.settings set shift_ms = greatest(0, coalesce((a->>'shift')::bigint, 0));
   return jsonb_build_object('changed', app.run_jobs(), 'shift', (app.cfg()).shift_ms);
+end $$;
+
+-- Run once when you switch from test payments to Paystack:  select app.go_live();
+-- Removes test bookings, payments, keys, ballots and savings (made with simulated money),
+-- keeps accounts, listings, chats and complaints, and turns on Paystack.
+create or replace function app.go_live() returns text
+language plpgsql as $$
+begin
+  update app.complaints set payment_id = null where payment_id is not null;
+  delete from app.savings_txns;
+  delete from app.ballot_entries;
+  delete from app.ballots;
+  delete from app.keys;
+  delete from app.inspections;
+  delete from app.payments;
+  delete from app.hold_log;
+  update app.savings_goals set next_auto = null, sched = 'none';
+  update app.rooms set hold_ballot = null, pay_hold_by = null, pay_hold_until = null;
+  update app.settings set payment_mode = 'paystack', demo = false, shift_ms = 0;
+  return 'Live: test bookings and payments cleared, Paystack is on.';
 end $$;
 
 -- >>> db/local/10_demo_auth.sql

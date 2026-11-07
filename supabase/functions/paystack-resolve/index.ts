@@ -13,6 +13,8 @@ Deno.serve(handle(async (req) => {
   if (number.length !== 10) return json({ error: 'Enter the 10-digit account number.' }, 400);
 
   const sb = admin();
+  const { data: role } = await sb.rpc('user_role', { p_user: user.id });
+  if (role !== 'agent') return json({ error: 'Only agents have payout accounts.' }, 403);
   if (!banks) banks = (await paystack('/bank?country=nigeria&perPage=200')).map((b: any) => ({ name: b.name, code: b.code }));
   const want = norm(String(bank || ''));
   const match = banks!.find((b) => norm(b.name) === want) || banks!.find((b) => norm(b.name).includes(want) || want.includes(norm(b.name)));

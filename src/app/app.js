@@ -974,7 +974,8 @@ function body(){
  let clock=SHIFT?`<div class="clockbar">${ic('clock',16)}<span>Demo clock: ${fmtDate(now())} (${SHIFT>0?'+':''}${Math.round(SHIFT/DAY)} days)</span><button class="link" data-act="today">Back to today</button></div>`:'';
  if(S.role==='student'&&!LOGGED()&&!c&&SIGNED_OUT[nav().tab]){const [t,d]=SIGNED_OUT[nav().tab];return clock+`<div class="narrow">${head('Not logged in',t)}<div class="empty">${ic('lock',28)}<p>${d}</p><div class="btns" style="justify-content:center"><button class="btn sm" data-act="signup">Create an account</button><button class="btn sm ghost" data-act="login">Log in</button></div></div></div>`;}
  const susp=S.role==='student'&&LOGGED()&&ME.suspended?`<div class="clockbar" style="background:var(--bad-soft);color:var(--bad)">${ic('alert',16)}<span>Your account is suspended: ${esc((S.students[MYID()]||{}).suspendReason||'')}. You can't book, pay or message.</span></div>`:S.role==='agent'&&agent(MYID()).status==='suspended'?`<div class="clockbar" style="background:var(--bad-soft);color:var(--bad)">${ic('alert',16)}<span>Your account is suspended: ${esc(agent(MYID()).suspendReason||'')}. Your houses are hidden from students.</span></div>`:'';
- clock=susp+clock;
+ const testPay=!DEMO&&ME&&ME.role==='admin'&&PAYMODE==='simulated'?`<div class="clockbar" style="background:var(--warn-soft,var(--brass-soft));color:var(--ink)">${ic('alert',16)}<span>Payments are in test mode, so nobody is charged. Finish the Paystack setup (docs/SETUP.md, part 4) before opening to students.</span></div>`:'';
+ clock=testPay+susp+clock;
  const loading=viewLoading();
  if(S.role==='agent'&&ME&&ME.role==='agent'&&!['verified','suspended'].includes(agent(MYID()).status)&&!c&&!loading)return clock+`<div class="narrow">${V.pending({id:MYID()})}</div>`;
  if(c){if(loading)return clock+`<div class="narrow">${skelFor(c.v)}</div>`;const f=V[c.v];return clock+`<div class="narrow">${f?f(c):gone()}</div>`;}
@@ -1145,7 +1146,7 @@ MODALS.demo=()=>{
  <h3 class="sub">Visit reminders</h3>
  ${(()=>{const v=S.inspections.filter(i=>i.studentId===MYID()&&i.status==='booked').sort((a,b)=>a.slot-b.slot)[0];return `<p class="muted small">${v?`Moves the clock to just before your visit to ${esc(house(v.houseId).title)}.`:'Book an inspection first. Reminders go out 24 hours and 1 hour before a visit.'}</p><div class="jump"><button class="btn sm ghost" data-act="jumpVisit" data-h="23" ${v?'':'disabled'}>23 hours before</button><button class="btn sm ghost" data-act="jumpVisit" data-h="0.8" ${v?'':'disabled'}>50 minutes before</button><button class="btn sm ghost" data-act="jumpVisit" data-h="-1.2" ${v?'':'disabled'}>Just after (agent no-show)</button></div>`;})()}
  <h3 class="sub">Assumptions for the open questions</h3>
- <ul class="rules small"><li>Inspection fee ${fmt(FEE)}, paid to the agent minus ${COMM*100}% for Lodgely.</li><li>Fully let houses stay in search as "Taken until [date]".</li><li>Ballot entries open 60 days before a room frees up, for students who inspected. The tenant can renew until the end date. The draw runs then, or 2 days after the tenant says they're not renewing. The winner has 48 hours to pay before it passes to the next name.</li><li>Escrow releases on move-in confirmation, or automatically after 7 days.</li><li>Key term is ${TERM} days from payment.</li><li>${COMM*100}% commission on rent and on inspection fees, taken from the agent's payout.</li><li>Complaints go live at once. Admin can review, resolve or remove them, and the person named can reply.</li><li>Savings partner not chosen yet.</li><li>No listing fee for agents.</li><li>Edits to a live listing show to students straight away, and admin gets a note.</li><li>A listing with tenants, booked visits or a running ballot can be paused but not deleted.</li><li>Students can cancel a visit for free, or move it once, up to 12 hours before. Later cancellations keep the fee with the agent. An hour after the slot, the student can report an agent no-show for a full refund, or the agent can mark that the student didn't come.</li><li>Opening rent checkout holds the room for 15 minutes. Other students see it as pending payment. The student can continue paying or release it, and it opens again by itself when the time runs out.</li><li>Suspending an agent hides their houses and cancels their booked visits with refunds. Taking down a listing does the same for that house. Current tenants keep their keys.</li></ul>
+ <ul class="rules small"><li>Inspection fee ${fmt(FEE)}, paid to the agent minus ${COMM*100}% for Lodgely.</li><li>Fully let houses stay in search as "Taken until [date]".</li><li>Ballot entries open 60 days before a room frees up, for students who inspected. The tenant can renew until the end date. The draw runs then, or 2 days after the tenant says they're not renewing. The winner has 48 hours to pay before it passes to the next name.</li><li>Escrow releases on move-in confirmation, or automatically after 7 days.</li><li>Key term is ${TERM} days from payment.</li><li>${COMM*100}% commission on rent and on inspection fees, taken from the agent's payout.</li><li>Complaints go live at once. Admin can review, resolve or remove them, and the person named can reply.</li><li>Savings partner not chosen yet.</li><li>No listing fee for agents.</li><li>Edits to a live listing show to students straight away, and admin gets a note. Changing the name, address, area or photos sends it back for review.</li><li>A listing with tenants, booked visits or a running ballot can be paused but not deleted.</li><li>Students can cancel a visit for free, or move it once, up to 12 hours before. Later cancellations keep the fee with the agent. An hour after the slot, the student can report an agent no-show for a full refund, or the agent can mark that the student didn't come.</li><li>Opening rent checkout holds the room for 15 minutes. Other students see it as pending payment. The student can continue paying or release it, and it opens again by itself when the time runs out.</li><li>Suspending an agent hides their houses and cancels their booked visits with refunds. Taking down a listing does the same for that house. Current tenants keep their keys.</li></ul>
  <button class="btn block ghost danger-t" data-act="reset">Reset demo data</button>`;
 };
 
@@ -1411,9 +1412,12 @@ const ACT={
  later:()=>{S.modal=null;save();renderModal();},
  needInsp:()=>toast('Book and complete an inspection first. Rent unlocks after the visit.'),
  enterCode:el=>{S.modal={type:'code',id:el.dataset.id,val:''};renderModal();setTimeout(()=>{const i=$('#code-in');if(i)i.focus();},60);},
- checkCode:()=>{
+ checkCode:async()=>{
   const m=S.modal,inp=$('#code-in');const v=(inp?inp.value:m.val||'').trim();m.val=v;
-  run('confirm_visit',{id:m.id,code:v},{errTo:true,ok:'Visit confirmed. Rent payment is unlocked.'});
+  if(busy)return;busy=true;
+  try{const r=await B.call('confirm_visit',{id:m.id,code:v});if(r&&r.error){m.err=r.error;renderModal();return;}
+   if(S.modal===m)S.modal=null;await refresh();save();render();renderModal();toast('Visit confirmed. Rent payment is unlocked.');}
+  catch(e){m.err=e.message;renderModal();}finally{busy=false;}
  },
  rate:el=>run('rate_visit',{id:el.dataset.id,n:+el.dataset.n},{close:false,ok:r=>`Thanks. ${r.name} is now rated ${(+r.rating).toFixed(1)} from ${r.ratings} visits, with a trust score of ${r.trust}.`}),
  mismatch:el=>{S.modal={type:'mismatch',id:el.dataset.id,text:''};renderModal();},
@@ -1838,7 +1842,7 @@ V.settings=()=>{
   <dl class="dl"><div><dt>${ag?'Name on your ID':'Name'}</dt><dd>${esc(p.name)}</dd></div>${ag?`<div><dt>Business</dt><dd>${esc(p.biz)}</dd></div>`:'<div><dt>School</dt><dd>Obafemi Awolowo University</dd></div>'}<div><dt>Phone</dt><dd>${esc(p.phone||'')} · <button class="link small" data-act="changePhone">Change</button></dd></div></dl>
   <p class="muted small">${ag?'Your name and business name match your verification documents. Contact support to change them.':'Your name matches your account and your keys. Contact support to change it.'}</p>
   <div class="form">${ag?`<div class="field"><label for="pf-bio">About you (shown on your profile)</label><textarea id="pf-bio" class="in" rows="3">${esc(p.bio||'')}</textarea></div>`:`<div class="field"><label for="pf-dept">Department and level</label><input id="pf-dept" class="in" value="${esc(p.dept||'')}"></div>`}
-   <div class="field"><label for="pf-email">Email</label><input id="pf-email" class="in" type="email" value="${esc(p.email||'')}" autocomplete="email"></div>
+   <div class="field"><label for="pf-email">Email (your login)</label><input id="pf-email" class="in" type="email" value="${esc(p.email||(ME&&ME.email)||'')}" readonly aria-readonly="true"><span class="small muted">Contact support to change the email on your account.</span></div>
    <div><button class="btn sm" data-act="saveProfile">Save details</button></div></div></section>
  <section class="block"><h2>Notifications</h2><p class="muted small">You always get notifications in the app. Choose what also comes by email or SMS.</p>
   <div class="ntable" role="table" aria-label="Notification settings"><div class="nrow nh" role="row"><span role="columnheader">Notification</span><span role="columnheader">Email</span><span role="columnheader">SMS</span></div>
@@ -1898,7 +1902,7 @@ Object.assign(ACT,{
  supportDone:el=>run('toggle_support_done',{id:el.dataset.id},{close:false}),
  removePhoto:()=>run('save_profile',{photo:''},{close:false,ok:'Photo removed.'}),
  saveProfile:()=>{const email=(($('#pf-email')||{}).value||'').trim();if(email&&!EMAIL_RE.test(email)){toast('Enter a valid email address.');return;}
-  const a={};if(DEMO&&email)a.email=email;if(S.role==='agent')a.bio=(($('#pf-bio')||{}).value||'').trim();else a.dept=(($('#pf-dept')||{}).value||'').trim();
+  const a={};if(S.role==='agent')a.bio=(($('#pf-bio')||{}).value||'').trim();else a.dept=(($('#pf-dept')||{}).value||'').trim();
   run('save_profile',a,{close:false,ok:'Details saved.'});},
  prefToggle:el=>{const pr=JSON.parse(JSON.stringify(prefsOf(me(),meKind()))),c=el.dataset.c,ch=el.dataset.ch;pr[c][ch]=!pr[c][ch];run('save_prefs',{prefs:pr},{close:false});},
  changePhone:()=>{S.modal={type:'phone',stage:'enter',phone:''};renderModal();},

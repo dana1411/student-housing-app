@@ -2,6 +2,15 @@
 // Body: { ref, callback? }   Auth: the student who started the checkout.
 import { admin, caller, handle, json, paystack } from '../_shared/common.ts';
 
+function allowed(cb: unknown): string | undefined {
+  const base = Deno.env.get('APP_URL');
+  if (!base || typeof cb !== 'string') return undefined;
+  try {
+    const u = new URL(cb), b = new URL(base);
+    return u.origin === b.origin ? u.toString() : undefined;
+  } catch { return undefined; }
+}
+
 Deno.serve(handle(async (req) => {
   const user = await caller(req);
   if (!user) return json({ error: 'Log in first.' }, 401);
@@ -19,7 +28,8 @@ Deno.serve(handle(async (req) => {
       amount: p.chargeKobo,
       reference: p.ref,
       currency: 'NGN',
-      callback_url: typeof callback === 'string' && /^https:\/\//.test(callback) ? callback : undefined,
+      // only send people back to your own site (APP_URL secret), never to an address from the request
+      callback_url: allowed(callback),
       metadata: { kind: p.kind, student: p.studentId },
     }),
   });

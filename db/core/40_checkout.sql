@@ -7,6 +7,16 @@
 --     payment_confirmed(), which only the service role may run.
 -- Either way app.finalize_payment() applies the effects exactly once.
 
+-- At most 3 holds per student per room per day, so nobody can keep a room blocked.
+create or replace function app.log_hold(u uuid, rid uuid) returns void
+language plpgsql as $$
+begin
+  if (select count(*) from app.hold_log where student_id = u and room_id = rid and at > app.now() - interval '24 hours') >= 3 then
+    perform app.fail('You have held this room 3 times today. Other students get a turn now. Try again tomorrow.');
+  end if;
+  insert into app.hold_log(student_id, room_id, at) values (u, rid, app.now());
+end $$;
+
 -- Hold a room for a few minutes while the student pays, so nobody else can take it.
 create or replace function public.hold_room(a jsonb) returns jsonb
 language plpgsql security definer set search_path = app, public as $$
@@ -23,6 +33,7 @@ begin
   end if;
   if st = 'pending' then perform app.fail('Another student is paying for this room right now. Try again in a few minutes.'); end if;
   if st <> 'open' then perform app.fail('Someone else just secured this room.'); end if;
+  perform app.log_hold(u, r.id);
   -- one hold per student
   update app.rooms set pay_hold_by = null, pay_hold_until = null where pay_hold_by = u and id <> r.id;
   update app.rooms set pay_hold_by = u, pay_hold_until = app.now() + make_interval(mins => c.hold_minutes)
@@ -49,7 +60,7 @@ declare
   amount int; sv int := 0; slot timestamptz; meta jsonb := '{}'::jsonb;
   pid uuid; ref text; method text := coalesce(nullif(a->>'method', ''), 'Card');
 begin
-  if kind not in ('inspection', 'rent', 'renewal', 'deposit') then perform app.fail('Unknown payment.'); end if;
+  if kind is null or kind not in ('inspection', 'rent', 'renewal', 'deposit') then perform app.fail('Unknown payment.'); end if;
   u := app.need_student();
 
   if kind = 'inspection' then
@@ -81,6 +92,7 @@ begin
     else
       if not app.house_live(h) then perform app.fail('This house is not taking bookings right now.'); end if;
       if app.room_state(r) = 'open' then
+        perform app.log_hold(u, r.id);
         update app.rooms set pay_hold_by = null, pay_hold_until = null where pay_hold_by = u and id <> r.id;
         update app.rooms set pay_hold_by = u, pay_hold_until = t + make_interval(mins => c.hold_minutes) where id = r.id;
       elsif not (app.room_state(r) = 'pending' and r.pay_hold_by = u) then
@@ -137,12 +149,24 @@ begin
   if p.status <> 'pending' then return coalesce(p.meta->'result', jsonb_build_object('ref', p.ref)); end if;
   select * into h from app.houses where id = p.house_id;
   sname := app.pname(p.student_id);
+  -- one money operation per student at a time (savings can't be spent twice)
+  perform 1 from app.profiles where id = p.student_id for update;
 
   if p.savings_used > 0 and app.savings_balance(p.student_id) < p.savings_used then
     res := jsonb_build_object('error', 'Your savings balance changed while you were paying. Any money taken will be refunded.');
     update app.payments set status = 'failed', provider_txn = finalize_payment.provider_txn,
       meta = meta || jsonb_build_object('result', res, 'refund_needed', p.amount > p.savings_used and p.provider <> 'simulated')
      where id = p.id;
+    return res;
+  end if;
+
+  if p.kind = 'inspection' and app.ts((p.meta->>'slot')::bigint) <= t then
+    res := jsonb_build_object('error', 'That visit time has passed. Any money taken will be refunded. Book another time.');
+    update app.payments set status = 'failed', provider_txn = finalize_payment.provider_txn,
+      meta = meta || jsonb_build_object('result', res, 'refund_needed', p.provider <> 'simulated') where id = p.id;
+    if p.provider <> 'simulated' then
+      perform app.note(null, format('Payment %s for a visit at %s arrived after the visit time. Refund %s to %s.', p.ref, h.title, app.naira(p.amount), sname));
+    end if;
     return res;
   end if;
 
@@ -168,7 +192,9 @@ begin
     select * into r from app.rooms where id = p.room_id for update;
     if p.meta ? 'ballot_id' then
       select * into b from app.ballots where id = (p.meta->>'ballot_id')::uuid for update;
-      ok := b.status = 'drawn' and b.draw_order[b.offer_idx + 1] = p.student_id;
+      ok := b.status = 'drawn' and b.draw_order[b.offer_idx + 1] = p.student_id
+        -- the room must have space for the whole new term
+        and (select count(*) from app.keys x where x.room_id = r.id and x.status = 'active' and x.end_at > app.ballot_start(b)) < r.cap;
       if not ok then res := jsonb_build_object('error', 'This ballot offer is no longer yours. Any money taken will be refunded.'); end if;
     else
       ok := app.room_state(r) = 'open' or (app.room_state(r) = 'pending' and r.pay_hold_by = p.student_id);
@@ -266,7 +292,7 @@ declare u uuid := app.need_login(); p app.payments;
 begin
   select * into p from app.payments where ref = a->>'ref' and student_id = u;
   if p.id is null then perform app.fail('Payment not found.'); end if;
-  if p.provider <> 'simulated' then perform app.fail('This payment goes through Paystack.'); end if;
+  if p.provider <> 'simulated' or (app.cfg()).payment_mode <> 'simulated' then perform app.fail('This payment goes through Paystack.'); end if;
   if (a->>'fail')::boolean then
     update app.payments set status = 'failed' where id = p.id and status = 'pending';
     return jsonb_build_object('error', 'The payment did not go through. You have not been charged.');
@@ -311,6 +337,12 @@ declare p app.payments;
 begin
   select * into p from app.payments where ref = p_ref for update;
   if p.id is null then return jsonb_build_object('error', 'unknown reference'); end if;
+  -- money arrived after the checkout was cancelled or timed out: try to apply it anyway
+  -- (finalize refuses and flags a refund if the room or visit is no longer available)
+  if p.status = 'expired' then
+    update app.payments set status = 'pending' where id = p.id;
+    p.status := 'pending';
+  end if;
   if p.status <> 'pending' then return coalesce(p.meta->'result', jsonb_build_object('ref', p.ref)); end if;
   if p_amount_kobo <> (p.amount - p.savings_used)::bigint * 100 then
     update app.payments set status = 'failed', provider_txn = p_txn,

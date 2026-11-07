@@ -101,6 +101,8 @@ appear under **Admin → Users** for you to approve. Their listings appear under
 ## Part 4: Payments with Paystack
 
 Until you do this, payments are simulated: nothing is charged and everything else works.
+Anyone with an account can "pay" in this mode, so don't open the app to the public before
+finishing this part.
 
 ### 4.1 Paystack account
 
@@ -121,6 +123,8 @@ The quickest way is the ready-made GitHub Action.
    - `SUPABASE_PROJECT_REF`: the id in your project URL (`https://<this part>.supabase.co`)
    - `SUPABASE_DB_URL`: the URI from step 2
    - `PAYSTACK_SECRET_KEY`: your `sk_test_...` key
+   - `VITE_PUBLIC_URL`: your website link (you added this in 3.4). Paystack only sends people
+     back to this address after paying.
 4. Open **Actions → Deploy backend (Supabase) → Run workflow**.
 
 This also updates the database. Run it again whenever the backend code changes.
@@ -131,8 +135,11 @@ This also updates the database. Run it again whenever the backend code changes.
    `https://<your project ref>.supabase.co/functions/v1/paystack-webhook`
 2. In the Supabase SQL editor, turn on Paystack:
    ```sql
-   update app.settings set payment_mode = 'paystack';
+   select app.go_live();
    ```
+   This clears the test bookings, payments, keys and savings made while payments were
+   simulated, so no free test money carries over. Accounts, listings and chats stay. Run it
+   once, before you open the app to real students.
 3. Try a booking. The app opens Paystack's checkout page. Pay with one of Paystack's test cards
    (paystack.com/docs/payments/test-payments).
 
