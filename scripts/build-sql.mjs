@@ -30,4 +30,17 @@ fs.writeFileSync(path.join(root, 'public/manifest.webmanifest'), JSON.stringify(
   background_color: '#1B2A6B', theme_color: '#1B2A6B',
   icons: [{ src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }]
 }, null, 2) + '\n');
+// Phone app display name (Android + iPhone) from the same setting.
+const strings = path.join(root, 'android/app/src/main/res/values/strings.xml');
+if (fs.existsSync(strings)) {
+  const x = cfg.name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/'/g, "\\'");
+  fs.writeFileSync(strings, fs.readFileSync(strings, 'utf8')
+    .replace(/(<string name="app_name">)[^<]*(<\/string>)/, `$1${x}$2`)
+    .replace(/(<string name="title_activity_main">)[^<]*(<\/string>)/, `$1${x}$2`));
+}
+const plist = path.join(root, 'ios/App/App/Info.plist');
+if (fs.existsSync(plist)) {
+  fs.writeFileSync(plist, fs.readFileSync(plist, 'utf8')
+    .replace(/(<key>CFBundleDisplayName<\/key>\s*<string>)[^<]*(<\/string>)/, `$1${cfg.name.replace(/&/g, '&amp;').replace(/</g, '&lt;')}$2`));
+}
 console.log(`sql: local ${(local.length / 1024).toFixed(0)} KB, supabase ${(supa.length / 1024).toFixed(0)} KB`);

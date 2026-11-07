@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Lodgely</string>
+    <string name="title_activity_main">Lodgely</string>
+    <string name="package_name">com.lodgely.app</string>
+    <string name="custom_url_scheme">com.lodgely.app</string>
+</resources>

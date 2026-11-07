@@ -1,0 +1,30 @@
+# Supabase project settings used by the Supabase CLI (local development and `supabase config push`).
+project_id = "student-housing-app"
+
+[api]
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+
+[auth]
+site_url = "env(SITE_URL)"
+additional_redirect_urls = ["capacitor://localhost", "https://localhost"]
+enable_signup = true
+minimum_password_length = 8
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+otp_length = 6
+otp_expiry = 3600
+
+# Codes instead of links: the app asks for the 6-digit code.
+[auth.email.template.confirmation]
+subject = "Your sign-up code"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "Your password reset code"
+content_path = "./supabase/templates/recovery.html"
+
+[functions.paystack-webhook]
+verify_jwt = false

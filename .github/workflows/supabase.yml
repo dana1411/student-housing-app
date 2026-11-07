@@ -1,0 +1,46 @@
+name: Deploy backend (Supabase)
+
+# Updates your Supabase database and deploys the Paystack functions. Run it from the
+# Actions tab ("Run workflow"). Repository secrets it needs:
+#   SUPABASE_DB_URL        Project Settings > Database > Connection string > "Session pooler" (URI, with your password)
+#   SUPABASE_ACCESS_TOKEN  supabase.com/dashboard/account/tokens
+#   SUPABASE_PROJECT_REF   the id in your project URL (https://<ref>.supabase.co)
+#   PAYSTACK_SECRET_KEY    Paystack > Settings > API Keys (sk_test_... while testing)
+# The SQL is safe to run again: it creates what is missing and updates the functions.
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      HAS_PAYSTACK: ${{ secrets.PAYSTACK_SECRET_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build the SQL from db/
+        run: node scripts/build-sql.mjs
+      - name: Update the database
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          sudo apt-get install -y -qq postgresql-client >/dev/null
+          psql "$SUPABASE_DB_URL" -v ON_ERROR_STOP=1 -q -f supabase/migrations/20261107000000_core.sql
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Deploy Paystack functions
+        run: |
+          supabase functions deploy paystack-init --project-ref "$PROJECT_REF"
+          supabase functions deploy paystack-verify --project-ref "$PROJECT_REF"
+          supabase functions deploy paystack-resolve --project-ref "$PROJECT_REF"
+          supabase functions deploy paystack-webhook --no-verify-jwt --project-ref "$PROJECT_REF"
+      - name: Set the Paystack secret
+        if: ${{ env.HAS_PAYSTACK == 'true' }}
+        env:
+          PAYSTACK_SECRET_KEY: ${{ secrets.PAYSTACK_SECRET_KEY }}
+        run: supabase secrets set PAYSTACK_SECRET_KEY="$PAYSTACK_SECRET_KEY" --project-ref "$PROJECT_REF"
