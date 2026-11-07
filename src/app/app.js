@@ -1,3 +1,6 @@
+import qrcode from 'qrcode-generator';
+import { saveFile, openExternal, closeExternal, initNative, setStatusBar } from '../native.js';
+
 export async function start(B){
 'use strict';
 const STORE='lodgely-ui-v1', DAY=864e5;
@@ -72,122 +75,78 @@ function slotAt(base,dayOff,hour,min=0){const d=new Date(base+dayOff*DAY);d.setH
 function getPath(p){return p.split('.').reduce((o,k)=>o==null?o:o[k],S);}
 function setPath(p,v){const ks=p.split('.');let o=S;for(let i=0;i<ks.length-1;i++){if(o[ks[i]]==null)o[ks[i]]={};o=o[ks[i]];}o[ks[ks.length-1]]=v;}
 
-/* ---------- seed data ---------- */
-function seed(){
- const T=Date.now(), d=n=>T+n*DAY;
- const K1=genKey(),K2=genKey(),K3=genKey(),K0=genKey(),K4=genKey(),K5=genKey();
- const H=o=>Object.assign({mod:'live',paused:false,shared:false,photos:[],created:d(-30)},o,{rooms:o.rooms.map(r=>Object.assign({cap:1,occ:[],paused:false,furnished:false},r))});
- return {
-  v:5, role:'student', shift:0,
-  nav:{student:{tab:'explore',stack:[]},agent:{tab:'home',stack:[]},admin:{tab:'overview',stack:[]}},
-  f:{q:'',area:'All',max:'Any',type:'Any',am:[],sort:'rec',view:'list'},
-  payFilter:'all', compFilter:'public', boardFilter:'all', vk:null, draft:null, modal:null,
-  students:{
-   s1:{name:'Tolu Adebayo',dept:'Computer Science · 300L'}, s2:{name:'Chiamaka Obi',dept:'Pharmacy · 400L'},
-   s3:{name:'Ifeoluwa Ajayi',dept:'Law · 200L'}, s4:{name:'Damilola Yusuf',dept:'Economics · 300L'},
-   s5:{name:'Seun Akinola',dept:'Geology · 500L'}, s6:{name:'Kemi Oyelaran',dept:'English · 300L'},
-   s7:{name:'Ayomide Bello',dept:'Medicine · 200L'}, s8:{name:'Tobi Okafor',dept:'Physics · 400L'},
-   s9:{name:'Femi Adeyemi',dept:'Architecture · 500L'}, s10:{name:'Halima Sani',dept:'Microbiology · 300L'},
-   s11:{name:'Uche Eze',dept:'Accounting · 200L'}, s12:{name:'Bukola Adeleke',dept:'Nursing · 300L'}
-  },
-  agents:{
-   a1:{id:MYID(),name:'Kunle Oladipo',biz:'Oladipo Properties',phone:'0803 412 7790',status:'verified',since:'Mar 2026',resp:'in about 15 min',rating:4.7,ratings:23,trust:92,inspDone:41,disputes:0,bio:'Manages student houses around Damico, Asherifa and Parakin. Meets every inspection in person.',payout:'GTBank •••• 4410'},
-   a2:{id:'a2',name:'Adaeze Nwosu',biz:'Nwosu Homes',phone:'0807 220 5168',status:'verified',since:'Jan 2026',resp:'in about 40 min',rating:4.4,ratings:31,trust:86,inspDone:57,disputes:1,bio:'Caretaker for three owners in Mayfair, Lagere and Oduduwa Estate.',payout:'Access Bank •••• 0932'},
-   a3:{id:'a3',name:'Bisi Akande',biz:'Akande & Sons Estate',phone:'0806 993 1204',status:'pending',since:'Oct 2026',resp:'not rated yet',rating:0,ratings:0,trust:0,inspDone:0,disputes:0,bio:'Family-owned hostel block on Fajuyi Road.',payout:'Not added',docs:['NIN slip uploaded','Phone 0806 993 1204 confirmed by OTP','Letter of authority from the property owner']}
-  },
-  houses:[
-   H({id:'h1',agentId:MYID(),title:'Gold House Annex',area:'Damico',address:'14 Akinola Street, Damico, Ile-Ife',km:1.2,type:'Self-contain',art:{wall:0,roof:0,kind:'storey'},times:['10:00','16:00'],created:d(-20),
-    desc:'Two-storey block of self-contained rooms, each with its own kitchenette and bathroom. Quiet street, about eight minutes by bike to the school gate.',
-    amenities:['Borehole water','Prepaid meter','Night guard','Tiled floors','Kitchenette'],rules:['No loud music after 10 pm','Visitors out by 9 pm','Utilities paid monthly to the caretaker'],
-    rooms:[{id:'h1r1',name:'Self-contain A (upstairs)',price:320000},{id:'h1r2',name:'Self-contain B (upstairs)',price:320000,occ:[K1]},{id:'h1r3',name:'Self-contain C (ground floor)',price:300000}]}),
-   H({id:'h2',agentId:MYID(),title:'Olumide Court',area:'Asherifa',address:'3 Olumide Close, Asherifa, Ile-Ife',km:2.0,type:'Room & parlour',shared:true,art:{wall:2,roof:1,kind:'bungalow'},times:['11:00','15:30'],created:d(-45),
-    desc:'Bungalow with a shared compound and a fenced gate. The owner allows shared rooms for students who want to split rent.',
-    amenities:['Well and tank','Prepaid meter','Fenced compound','Wi-Fi'],rules:['Gate closes at 11 pm','No charcoal cooking indoors'],
-    rooms:[{id:'h2r1',name:'Room & parlour',price:480000},{id:'h2r2',name:'Single room',price:180000},{id:'h2r3',name:'Shared room (2 spaces)',price:110000,cap:2,occ:[K2],furnished:true}]}),
-   H({id:'h3',agentId:'a2',title:'Mayfair Garden Flats',area:'Mayfair',address:'22 Garden Avenue, Mayfair, Ile-Ife',km:4.5,type:'Flat',art:{wall:4,roof:2,kind:'flats'},times:['09:30','14:00'],created:d(-10),
-    desc:'Three-floor block with mini flats and a two-bedroom flat that suits two or three friends renting together. On a bus route to campus.',
-    amenities:['Borehole water','Prepaid meter','Security gate','Parking','Wi-Fi'],rules:['Refuse collection ₦2,000 a month'],
-    rooms:[{id:'h3r1',name:'Two-bedroom flat',price:850000},{id:'h3r2',name:'Mini flat 2B',price:450000,occ:[K3]},{id:'h3r3',name:'Mini flat 3A',price:450000}]}),
-   H({id:'h4',agentId:'a2',title:'Lagere Student Lodge',area:'Lagere',address:'7 Station Road, Lagere, Ile-Ife',km:5.1,type:'Single room',art:{wall:1,roof:3,kind:'bungalow'},times:['10:00','17:00'],created:d(-60),
-    desc:'Budget single rooms with a shared kitchen and bathrooms. Close to Lagere market and the campus shuttle stop.',
-    amenities:['Well and tank','Prepaid meter','Shared kitchen'],rules:['Quiet hours 10 pm to 6 am'],
-    rooms:[{id:'h4r1',name:'Single room 1',price:150000},{id:'h4r2',name:'Single room 2',price:150000},{id:'h4r3',name:'Single room 3',price:150000,paused:true}]}),
-   H({id:'h5',agentId:MYID(),title:'Parakin Quarters',area:'Parakin',address:'9 Ojo Lane, Parakin, Ile-Ife',km:3.4,type:'Self-contain',art:{wall:3,roof:4,kind:'storey'},times:['12:00','16:30'],created:d(-5),
-    desc:'Newly painted self-contains with a solar inverter that keeps lights and fans running during outages.',
-    amenities:['Borehole water','Solar backup','Night guard','Wi-Fi'],rules:['No pets'],
-    rooms:[{id:'h5r1',name:'Self-contain 1',price:280000},{id:'h5r2',name:'Self-contain 2',price:280000}]}),
-   H({id:'h6',agentId:'a2',title:'Oduduwa Estate Terrace',area:'Oduduwa Estate',address:'Block C, Oduduwa Estate, Ile-Ife',km:3.0,type:'Room & parlour',art:{wall:5,roof:0,kind:'storey'},times:['10:30','15:00'],created:d(-25),
-    desc:'Furnished room and parlour self-contain in a gated estate. Bed, reading table and wardrobe included.',
-    amenities:['Borehole water','Prepaid meter','Gated estate','Furnished','Wi-Fi'],rules:['Estate dues included in rent'],
-    rooms:[{id:'h6r1',name:'Furnished room & parlour',price:550000,furnished:true}]}),
-   H({id:'h7',agentId:'a3',title:'Fajuyi Hostel Block',area:'Fajuyi',address:'18 Fajuyi Road, Ile-Ife',km:4.0,type:'Single room',mod:'pending',art:{wall:6,roof:1,kind:'flats'},times:['11:00','15:00'],created:d(-1),
-    desc:'Hostel-style block with twelve single rooms, a reading room and a standby generator.',
-    amenities:['Borehole water','Generator','Reading room'],rules:['Generator runs 7 pm to midnight'],
-    rooms:[{id:'h7r1',name:'Single room (ground floor)',price:140000},{id:'h7r2',name:'Single room (first floor)',price:160000}]}),
-   H({id:'h8',agentId:MYID(),title:'Modomo Court',area:'Modomo',address:'5 Adeyemi Close, Modomo, Ile-Ife',km:2.6,type:'Self-contain',art:{wall:6,roof:3,kind:'storey'},times:['10:00','15:00'],created:d(-90),
-    desc:'Popular block on the campus shuttle route. Both self-contains are let. Self-contain 1 frees up soon and is taking ballot entries.',
-    amenities:['Borehole water','Prepaid meter','Night guard','Tiled floors'],rules:['Visitors out by 9 pm'],
-    rooms:[{id:'h8r1',name:'Self-contain 1',price:290000,occ:[K4]},{id:'h8r2',name:'Self-contain 2',price:290000,occ:[K5]}]})
-  ],
-  keys:[
-   {code:K1,payId:'p1',houseId:'h1',roomId:'h1r2',studentId:'s2',start:d(-120),end:d(240),status:'active',movedIn:true,autoRenew:false,shown:[]},
-   {code:K2,payId:'p2',houseId:'h2',roomId:'h2r3',studentId:'s3',start:d(-40),end:d(320),status:'active',movedIn:true,autoRenew:false,shown:[]},
-   {code:K3,payId:'p3',houseId:'h3',roomId:'h3r2',studentId:'s4',start:d(-5),end:d(355),status:'active',movedIn:false,autoRenew:false,shown:[]},
-   {code:K0,payId:'p0',houseId:'h4',roomId:'h4r2',studentId:'s8',start:d(-400),end:d(-40),status:'expired',movedIn:true,autoRenew:false,shown:[]},
-   {code:K4,payId:'p8',houseId:'h8',roomId:'h8r1',studentId:'s9',start:d(-315),end:d(45),status:'active',movedIn:true,autoRenew:false,shown:[],notRenewing:true},
-   {code:K5,payId:'p9',houseId:'h8',roomId:'h8r2',studentId:'s10',start:d(-100),end:d(260),status:'active',movedIn:true,autoRenew:false,shown:[]}
-  ],
-  ballots:[
-   {id:'b1',houseId:'h8',roomId:'h8r1',keyCode:K4,created:d(-15),drawAt:d(2),entrants:['s11','s12','s7','s6','s5'],status:'open',order:[],offerIdx:0,offerAt:0}
-  ],
-  payments:[
-   {id:'p0',kind:'rent',studentId:'s8',houseId:'h4',roomId:'h4r2',amount:140000,savingsUsed:0,method:'Bank transfer',ref:payRef(),time:d(-400),status:'released'},
-   {id:'p6',kind:'inspection',studentId:'s2',houseId:'h1',amount:FEE,savingsUsed:0,method:'OPay',ref:payRef(),time:d(-122),status:'paid'},
-   {id:'p1',kind:'rent',studentId:'s2',houseId:'h1',roomId:'h1r2',amount:320000,savingsUsed:0,method:'Bank transfer',ref:payRef(),time:d(-120),status:'released'},
-   {id:'p7',kind:'inspection',studentId:'s3',houseId:'h2',amount:FEE,savingsUsed:0,method:'PalmPay',ref:payRef(),time:d(-42),status:'paid'},
-   {id:'p2',kind:'rent',studentId:'s3',houseId:'h2',roomId:'h2r3',amount:110000,savingsUsed:40000,method:'PalmPay',ref:payRef(),time:d(-40),status:'released'},
-   {id:'p4',kind:'inspection',studentId:'s4',houseId:'h3',amount:FEE,savingsUsed:0,method:'OPay',ref:payRef(),time:d(-7),status:'paid'},
-   {id:'p3',kind:'rent',studentId:'s4',houseId:'h3',roomId:'h3r2',amount:450000,savingsUsed:0,method:'Bank transfer',ref:payRef(),time:d(-5),status:'held'},
-   {id:'p5',kind:'inspection',studentId:'s7',houseId:'h5',amount:FEE,savingsUsed:0,method:'OPay',ref:payRef(),time:d(-1),status:'paid'},
-   {id:'p8',kind:'rent',studentId:'s9',houseId:'h8',roomId:'h8r1',amount:270000,savingsUsed:0,method:'Bank transfer',ref:payRef(),time:d(-315),status:'released'},
-   {id:'p9',kind:'rent',studentId:'s10',houseId:'h8',roomId:'h8r2',amount:290000,savingsUsed:0,method:'MoMo PSB',ref:payRef(),time:d(-100),status:'released'}
-  ],
-  inspections:[
-   {id:'i1',houseId:'h5',studentId:'s7',slot:slotAt(T,1,12),fee:FEE,payId:'p5',status:'booked',code:'3307'},
-   {id:'i2',houseId:'h3',studentId:'s4',slot:d(-6),fee:FEE,payId:'p4',status:'completed',code:'5512',rating:5},
-   {id:'i3',houseId:'h1',studentId:'s2',slot:d(-121),fee:FEE,payId:'p6',status:'completed',code:'8140',rating:4},
-   {id:'i4',houseId:'h2',studentId:'s3',slot:d(-41),fee:FEE,payId:'p7',status:'completed',code:'2093',rating:5}
-  ],
-  threads:[
-   {id:'t1',houseId:'h1',studentId:MYID(),agentId:MYID(),msgs:[
-    {from:'s',text:'Good evening sir. Is the self-contain at Gold House Annex still available? How is water there?',t:d(-1)-36e5,read:true},
-    {from:'a',text:'Good evening Tolu. Self-contain A and C are free. Water is from a borehole with an overhead tank, so supply is steady. Book an inspection on the listing and I will meet you there.',t:d(-1),read:false}]},
-   {id:'t2',houseId:'h5',studentId:'s7',agentId:MYID(),msgs:[
-    {from:'s',text:'Hi, I booked the 12 pm visit for Parakin Quarters. Is there space to park a bike?',t:d(-1),read:false}]}
-  ],
-  favs:['h3','h6'],
-  complaints:[
-   {id:'c1',kind:'public',authorId:'s5',authorName:'Seun A.',authorRole:'tenant',about:'house',houseId:'h4',agentId:'a2',text:'The prepaid meter in my room was faulty for most of second semester. It took five weeks to get it replaced.',status:'resolved',reply:'The meter was replaced in June and we now test every meter before each session.',replyBy:'Adaeze Nwosu',t:d(-60)},
-   {id:'c2',kind:'public',authorId:'s6',authorName:'Kemi O.',authorRole:'tenant',about:'house',houseId:'h2',agentId:MYID(),text:'The gate is locked at 11 pm and that was not in the listing when I rented. Hard if you have late lab sessions.',status:'review',reply:'',t:d(-12)},
-   {id:'c3',kind:'public',authorId:'a2',authorName:'Adaeze N.',authorRole:'owner',about:'tenant',houseId:'h4',agentId:'a2',tenantId:'s8',tenantName:'Tobi Okafor',text:'Moved out without settling ₦18,000 in shared electricity bills.',status:'open',reply:'',t:d(-35)}
-  ],
-  notes:[
-   {id:'n1',to:MYID(),text:'Welcome to Lodgely, Tolu. Book an inspection to unlock rent payment on any house.',t:d(-2),read:false},
-   {id:'n2',to:MYID(),text:'Kunle Oladipo replied about Gold House Annex.',t:d(-1),read:false},
-   {id:'n3',to:MYID(),text:'Ayomide Bello booked a visit at Parakin Quarters.',t:d(-1),read:false},
-   {id:'n4',to:MYID(),text:'Kemi O. posted a complaint about Olumide Court. You can reply from Account.',t:d(-12),read:true},
-   {id:'n5',to:'admin',text:'Bisi Akande submitted verification documents.',t:d(-1),read:false},
-   {id:'n6',to:'admin',text:'New listing awaiting review: Fajuyi Hostel Block.',t:d(-1),read:false}
-  ],
-  savings:{goal:{name:'Next session rent',target:350000,due:isoDate(d(83)),mode:'flexible',sched:'monthly',schedAmt:40000},
-   txns:[{id:'x3',type:'deposit',amt:52000,t:d(-6),note:'Mobile money · OPay'},{id:'x2',type:'deposit',amt:40000,t:d(-36),note:'Monthly auto-save'},{id:'x1',type:'deposit',amt:50000,t:d(-66),note:'Bank transfer'}]}
- };
+/* ---------- data: server state + local UI state ---------- */
+const DATA_KEYS=['houses','keys','payments','inspections','ballots','threads','complaints','notes','students','agents','favs','savings','support'];
+const UI_KEYS=['v','role','nav','f','payFilter','compFilter','boardFilter','screen','page','pageFrom','ld','myWait','slow','lstF','usrF','payF2','seen','ct'];
+let PAYMODE='simulated';
+function uiDefaults(){
+ return {v:1,role:'student',nav:{student:{tab:'explore',stack:[]},agent:{tab:'home',stack:[]},admin:{tab:'overview',stack:[]}},
+  f:{q:'',area:'All',max:'Any',type:'Any',am:[],sort:'rec',view:'list'},payFilter:'all',compFilter:'public',boardFilter:'all',
+  vk:null,draft:null,modal:null,screen:'landing',ld:{school:'oau',type:'Any',max:'Any'},myWait:[],seen:{},slow:false,
+  waitSeed:DEMO?{ui:38,unilorin:26,uniosun:21,futa:17,fuoye:12,lautech:9,eksu:7}:{},
+  houses:[],keys:[],payments:[],inspections:[],ballots:[],threads:[],complaints:[],notes:[],students:{},agents:{},favs:[],
+  savings:{goal:{name:'Next session rent',target:300000,due:'2027-01-01',mode:'flexible',sched:'none',schedAmt:0},txns:[]},support:[],waitlist:[]};
 }
+function loadUI(){try{const o=JSON.parse(localStorage.getItem(STORE)||'null');if(o&&o.v===1){const u={};UI_KEYS.forEach(k=>{if(o[k]!==undefined)u[k]=o[k];});return u;}}catch(e){}return {};}
+function applyState(st){
+ ME=st.me||null;
+ const c=st.cfg||{};FEE=c.fee;COMM=+c.comm;TERM=c.term;SHIFT=+c.shift||0;HOLD_MIN=c.holdMin||15;OFFER_H=c.offerHours||48;PAYMODE=c.paymentMode||'simulated';
+ clockOffset=(+st.now)-Date.now();
+ DATA_KEYS.forEach(k=>{S[k]=st[k];});
+ S.waitlist=ME&&ME.role==='admin'?st.waitlist:(S.myWait||[]);
+ if(ME&&ME.role!==S.role)S.role=ME.role;
+ if(!DEMO&&!ME&&S.role!=='student')S.role='student';
+ READY=true;
+ if(S.screen==='app'&&!S.modal)renewPrompt();
+}
+let refreshing=null,refreshAgain=false;
+function refresh(){
+ if(refreshing){refreshAgain=true;return refreshing;}
+ refreshing=(async()=>{do{refreshAgain=false;applyState(await B.state());}while(refreshAgain);})().finally(()=>{refreshing=null;});
+ return refreshing;
+}
+// Re-render after a background update without wiping what the person is typing.
+let staleView=false;
+function bgRender(){
+ const a=document.activeElement,typing=a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName);
+ if(typing){staleView=true;return;}
+ render();if(S.modal&&!S.modal.stage)renderModal();else if(!S.modal)renderModal();
+}
+document.addEventListener('focusout',()=>{if(staleView)setTimeout(()=>{const a=document.activeElement;if(staleView&&!(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))){staleView=false;render();}},50);});
+// Run a server action, refresh, re-render. Errors show in the open form (errTo) or as a toast.
+let busy=false;
+async function run(fn,args,o={}){
+ if(busy)return null;busy=true;document.body.classList.add('busy');
+ const m=S.modal;
+ try{
+  const r=await B.call(fn,args||{});
+  if(o.close!==false&&S.modal===m&&m)S.modal=null;
+  await refresh();save();render();renderModal();
+  if(o.ok)toast(typeof o.ok==='function'?o.ok(r||{}):o.ok);
+  return r||{};
+ }catch(e){
+  if(o.errTo&&S.modal===m&&m){m.err=e.message;renderModal();}else toast(e.message);
+  return null;
+ }finally{busy=false;document.body.classList.remove('busy');}
+}
+// Time-based renewal prompt: show once for each new 60/30/7/1-day mark on my key.
+function renewPrompt(){
+ if(!LOGGED())return;
+ for(const k of S.keys){
+  if(k.studentId!==MYID()||k.status!=='active'||!(k.shown&&k.shown.length))continue;
+  const seen=S.seen[k.code]||[],fresh=k.shown.filter(x=>!seen.includes(x));
+  if(!fresh.length)continue;
+  S.seen[k.code]=k.shown.slice();save();
+  if(!S.ballots.some(x=>x.keyCode===k.code&&(x.status==='drawn'||x.status==='filled')))S.modal={type:'renew',code:k.code,t:Math.min(...fresh)};
+  return;
+ }
+}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
 /* ---------- model helpers ---------- */
 const house=id=>S.houses.find(h=>h.id===id);
 const room=(h,rid)=>h&&h.rooms.find(r=>r.id===rid);
-const agent=id=>S.agents[id];
+const agent=id=>S.agents[id]||{id,name:'Agent',biz:'',status:'unknown',rating:0,ratings:0,trust:0,inspDone:0,phone:'',docs:[]};
 const stu=id=>S.students[id]||{name:'Student',dept:''};
 const holdActive=r=>!!(r.payHold&&r.payHold.until>now());
 const roomState=r=>r.paused?'paused':r.occ.length>=r.cap?'taken':r.hold?'reserved':holdActive(r)?'pending':'open';
@@ -214,18 +173,11 @@ const openBallotsH=h=>S.ballots.filter(b=>b.houseId===h.id&&b.status==='open');
 const isTakenListing=h=>isLive(h)&&openRooms(h).length===0;
 const startForBallot=b=>{const k=keyOf(b.keyCode);return Math.max(now(),k&&k.status==='active'?k.end:0);};
 const meId=()=>S.role==='student'?MYID():S.role==='agent'?MYID():'admin';
-const note=(to,text)=>S.notes.unshift({id:uid('n'),to,text,t:now(),read:false});
 const nav=()=>S.nav[S.role];
-function updateTrust(a){
- if(!a)return;
- if(!a.ratings&&!a.inspDone){a.trust=0;return;}
- a.trust=Math.max(0,Math.min(100,Math.round(40+a.rating*8+Math.min(a.inspDone,50)*0.2-(a.disputes||0)*5-(a.cancels||0)*3-(a.mismatches||0)*4-(a.noShows||0)*8)));
-}
-function visitDone(i){const h=house(i.houseId),a=agent(h.agentId);a.inspDone=(a.inspDone||0)+1;updateTrust(a);}
 const PHONE_RE=/^\+?\d[\d\s]{9,16}$/,EMAIL_RE=/^\S+@\S+\.\S+$/;
 const genCode=()=>String(Math.floor(100000+Math.random()*900000));
 const cur=()=>{const s=nav().stack;return s[s.length-1];};
-function save(){try{localStorage.setItem(STORE,JSON.stringify(S));}catch(e){}}
+function save(){try{const o={};UI_KEYS.forEach(k=>{o[k]=S[k];});localStorage.setItem(STORE,JSON.stringify(o));}catch(e){}}
 function slotsFor(h){const out=[],base=now(),days=h.days&&h.days.length?h.days:[1,2,3,4,5,6],times=h.times&&h.times.length?h.times:['10:00'];for(let d=1;d<=14&&out.length<6;d++){const day=new Date(base+d*DAY);if(!days.includes(day.getDay()))continue;times.forEach(t=>{const [hh,mm]=t.split(':').map(Number);out.push(slotAt(base,d,hh,mm));});}return out.slice(0,6);}
 function cdText(end){let ms=Math.max(0,end-now());const d=Math.floor(ms/DAY);ms-=d*DAY;const h=Math.floor(ms/36e5);ms-=h*36e5;const m=Math.floor(ms/6e4);const s=Math.floor((ms-m*6e4)/1000);return {d,h:p2(h),m:p2(m),s:p2(s),str:`${d}d ${p2(h)}:${p2(m)}:${p2(s)}`};}
 
@@ -489,7 +441,7 @@ function inspectionBlock(h){
   <p class="small">Meet ${esc(agent(h.agentId).name)} at ${esc(h.address)}. At the door, the agent shows a 4-digit code on their app. Enter it to confirm the visit.</p>
   <div class="btns">${visitButtons(ins)}</div>
   <p class="small muted">${visitRule(ins)}</p>
-  <p class="hint">Demo: the agent's code is <b class="mono">${ins.code}</b></p></div></section>`;
+  ${DEMO&&ins.code?`<p class="hint">Demo: the agent's code is <b class="mono">${ins.code}</b></p>`:''}</div></section>`;
  if(full&&!ob)return `<section class="insp">${ic('clock',22)}<div><b>All rooms are let</b><p class="small">${houseEnd(h)?'Taken until '+fmtDate(houseEnd(h))+'. ':''}Save this house. A ballot opens here 60 days before a room frees up.</p></div></section>`;
  if(full)return `<section class="insp">${ic('users',22)}<div><b>All rooms are let, and one opens soon</b>
   <p class="small">Inspect now (${fmt(FEE)}) to join the ballot. The winner is drawn at random from students who inspected.</p>
@@ -587,21 +539,12 @@ V.thread=({id,ro})=>{
   <div class="msgs">${msgs||'<p class="muted">Say hello and ask anything about the house.</p>'}</div>
   ${ro?'<p class="fine">Admin view of this chat. Read-only.</p>':t.blocked?`<p class="note">${(t.blockedBy||'student')===(S.role==='agent'?'agent':'student')?'You blocked this chat. Lodgely\'s safety team has the report.':`${S.role==='agent'?'The student':'The agent'} blocked this chat. Lodgely's safety team is reviewing it.`}</p>`:`<div class="composer"><input id="msg-in" class="in" placeholder="Write a message" aria-label="Message" autocomplete="off" data-enter="send" data-id="${t.id}"><button class="btn" data-act="send" data-id="${t.id}" aria-label="Send">${ic('send',18)}</button></div>`}`;
 };
-function autoReply(tid,text){
- const t=S.threads.find(x=>x.id===tid);if(!t)return;
- const lt=text.toLowerCase();let r;
- if(SCAM.test(text))r='Please pay only through Lodgely. I can\'t accept money outside the app.';
- else if(/water|light|power|nepa|meter|electric/.test(lt))r='Water is steady and light is on a prepaid meter. You can check both during the inspection.';
- else if(/price|reduce|discount|last price|negotiat/.test(lt))r='The price is fixed for this session. You pay it on Lodgely after the inspection, and Lodgely holds it until you move in.';
- else if(/inspect|visit|see it|come|when/.test(lt))r='Sure. Book any slot on the listing and I will meet you there with the door code.';
- else r='Thanks, Tolu. The room is still available. Book an inspection on the listing and I will meet you there.';
- t.msgs.forEach(m=>{if(m.from==='s')m.read=true;});
- t.msgs.push({from:'a',text:r,t:now(),read:false});
- note(MYID(),`${agent(t.agentId).name} replied about ${house(t.houseId).title}.`);
- save();
+async function autoReply(tid,text){
+ if(!DEMO)return;
+ try{await B.call('demo_reply',{id:tid,text});await refresh();}catch(e){return;}
  const c=cur();
- if(S.role==='student'&&c&&c.v==='thread'&&c.id===tid){t.msgs.forEach(m=>{if(m.from==='a')m.read=true;});const v=$('#msg-in')?$('#msg-in').value:'';render();const i=$('#msg-in');if(i)i.value=v;scrollTo(0,document.body.scrollHeight);}
- else if(!document.activeElement||!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))render();
+ if(S.role==='student'&&c&&c.v==='thread'&&c.id===tid){const v=$('#msg-in')?$('#msg-in').value:'';render();const i=$('#msg-in');if(i)i.value=v;scrollTo(0,document.body.scrollHeight);B.call('mark_thread_read',{id:tid}).catch(()=>{});}
+ else bgRender();
 }
 
 /* ---------- student: lodge, key, saved, savings ---------- */
@@ -739,7 +682,7 @@ V.agent_home=()=>{
 function agentInspRow(i){
  const h=house(i.houseId);
  return `<div class="rowi"><div class="grow"><div class="row-between"><b>${esc(stu(i.studentId).name)}</b>${inspChip(i)}</div><span class="muted small">${esc(h.title)} · ${fmtSlot(i.slot)}</span>
-  ${i.status==='booked'?`<span class="doorcode">Door code <b class="mono">${i.code}</b> · ${fmt(i.fee*(1-COMM))} to you</span><div class="btns" style="margin-top:4px"><button class="btn sm" data-act="completeInsp" data-id="${i.id}">Mark visit done</button>${visitWhen(i).over?`<button class="btn sm ghost" data-act="markMissed" data-id="${i.id}">Student didn't come</button>`:`<button class="btn sm ghost danger-t" data-act="cancelInsp" data-id="${i.id}">Cancel</button>`}</div>`:''}${i.status==='noshow'?`<span class="small" style="color:var(--bad)">The student reported you didn't show up. This lowers your trust score.</span>`:''}</div></div>`;
+  ${i.status==='booked'?`<span class="doorcode">Door code <b class="mono">${i.code}</b> · ${fmt(i.fee*(1-COMM))} to you</span><div class="btns" style="margin-top:4px">${i.slot-now()<=36e5?`<button class="btn sm" data-act="completeInsp" data-id="${i.id}">Mark visit done</button>`:''}${visitWhen(i).over?`<button class="btn sm ghost" data-act="markMissed" data-id="${i.id}">Student didn't come</button>`:`<button class="btn sm ghost danger-t" data-act="cancelInsp" data-id="${i.id}">Cancel</button>`}</div>`:''}${i.status==='noshow'?`<span class="small" style="color:var(--bad)">The student reported you didn't show up. This lowers your trust score.</span>`:''}</div></div>`;
 }
 V.agent_listings=()=>{
  const hs=myH().sort((a,b)=>(b.created||0)-(a.created||0));
@@ -850,7 +793,7 @@ V.agent_more=()=>{
  <section class="block"><h2>Verify a subscription key</h2><p class="muted small">Ask the student for their key code before you hand over the room.</p>
   <div class="vk"><input id="vk" class="in mono" placeholder="LDG-XXXX-XXXX-XXXX" aria-label="Key code" value="${esc(S.vk?S.vk.q:'')}" autocapitalize="characters" data-enter="verifyKey"><button class="btn" data-act="verifyKey">Check</button></div>
   <div class="btns"><label class="btn sm ghost" for="vk-scan">${ic('qr',16)} Scan the QR code</label><input id="vk-scan" type="file" accept="image/*" capture="environment" class="sr"></div>
-  ${sample?`<p class="hint">Demo: try <button class="link mono" data-act="fillKey" data-v="${sample.code}">${sample.code}</button></p>`:''}
+  ${DEMO&&sample?`<p class="hint">Demo: try <button class="link mono" data-act="fillKey" data-v="${sample.code}">${sample.code}</button></p>`:''}
   ${vkResult()}</section>
  <section class="block"><h2>Complaints about your houses <span class="count-pill">${about.length}</span></h2>${about.length?about.map(c=>complaintCard(c,'agent')).join(''):'<p class="muted">None.</p>'}</section>
  <section class="block"><div class="row-between"><h2>Complaints you posted</h2><button class="btn sm ghost" data-act="tcomplaint">${ic('flag',15)} About a tenant</button></div>${mine.length?mine.map(c=>complaintCard(c)).join(''):'<p class="muted">You have not posted any complaints.</p>'}</section>`;
@@ -874,11 +817,11 @@ V.admin_overview=()=>{
  ${q.length?`<div class="queue">${q.join('')}</div>`:''}
  <div class="stats three">${stat(Object.keys(S.students).length,'Students')}${stat(ag.filter(a=>a.status==='verified').length+' / '+ag.length,'Verified agents')}${stat(live.length,'Live listings')}${stat(let_+' / '+spaces,'Spaces let')}${stat(fmt(held),'Held in escrow')}${stat(fmt(comm+fees),'Platform revenue')}</div>
  <p class="muted small">Revenue is ${fmt(comm)} commission on released rent plus ${fmt(fees)}, the ${COMM*100}% share of inspection fees. Agents keep the rest of each fee.</p>
- <section class="block"><h2>Ballots <span class="count-pill">${bl.length}</span></h2>${bl.length?`<div class="rows">${bl.map(b=>{const h=house(b.houseId),r=room(h,b.roomId);return `<div class="rowi"><div class="grow"><div class="row-between"><b>${esc(h.title)} · ${esc(r.name)}</b>${b.status==='open'?chip('Open','brass'):chip('Drawn','info')}</div><span class="muted small">${b.entrants.length} entries · ${b.status==='open'?'draw '+fmtDate(b.drawAt):'offered to '+esc(stu(b.order[b.offerIdx]).name)+' until '+fmtSlot(b.offerAt+48*36e5)}</span><div class="btns" style="margin-top:6px">${b.status==='open'?`<button class="btn sm ghost" data-act="runDraw" data-id="${b.id}">Run draw now (demo)</button>`:`<button class="btn sm ghost" data-act="passBallot" data-id="${b.id}">Winner didn't pay, offer to next</button>`}</div></div></div>`;}).join('')}</div>`:'<p class="muted">No ballots running.</p>'}</section>
+ <section class="block"><h2>Ballots <span class="count-pill">${bl.length}</span></h2>${bl.length?`<div class="rows">${bl.map(b=>{const h=house(b.houseId),r=room(h,b.roomId);return `<div class="rowi"><div class="grow"><div class="row-between"><b>${esc(h.title)} · ${esc(r.name)}</b>${b.status==='open'?chip('Open','brass'):chip('Drawn','info')}</div><span class="muted small">${b.entrants.length} entries · ${b.status==='open'?'draw '+fmtDate(b.drawAt):'offered to '+esc(stu(b.order[b.offerIdx]).name)+' until '+fmtSlot(b.offerAt+48*36e5)}</span><div class="btns" style="margin-top:6px">${b.status==='open'?`<button class="btn sm ghost" data-act="runDraw" data-id="${b.id}">Run draw now</button>`:`<button class="btn sm ghost" data-act="passBallot" data-id="${b.id}">Winner didn't pay, offer to next</button>`}</div></div></div>`;}).join('')}</div>`:'<p class="muted">No ballots running.</p>'}</section>
  <section class="block"><h2>Spaces let by area</h2><div class="bars">${Object.entries(by).map(([k,v])=>`<div class="bar-row"><span>${k}</span><div class="bar"><i style="width:${(v.n/v.t*100).toFixed(0)}%"></i></div><b class="num">${v.n}/${v.t}</b></div>`).join('')}</div></section>
  <section class="block"><h2>Look up a key</h2><p class="muted small">Check any subscription key, for example when a student and an agent disagree about a room.</p>
   <div class="vk"><input id="akq" class="in mono" placeholder="LDG-XXXX-XXXX-XXXX" aria-label="Key code" value="${esc(S.akq||'')}" autocapitalize="characters" data-enter="adminKey"><button class="btn" data-act="adminKey">Look up</button></div>
-  ${(()=>{const k=S.keys.find(x=>x.status==='active');return k?`<p class="hint">Demo: try <button class="link mono" data-act="adminKeyFill" data-v="${k.code}">${k.code}</button></p>`:'';})()}
+  ${(()=>{const k=S.keys.find(x=>x.status==='active');return DEMO&&k?`<p class="hint">Demo: try <button class="link mono" data-act="adminKeyFill" data-v="${k.code}">${k.code}</button></p>`:'';})()}
   ${S.akq?adminKeyResult(S.akq):''}</section>
  ${(()=>{const wl=SCHOOLS.filter(s=>!s.live).map(s=>({s,n:(S.waitSeed[s.id]||0)+S.waitlist.filter(w=>w.school===s.id).length})).sort((a,b)=>b.n-a.n),mx=Math.max(1,...wl.map(x=>x.n));
   return `<section class="block"><h2>Waitlist demand</h2><p class="muted small">Students and agents asking for Lodgely at other schools. Use it to pick the next campus.</p><div class="bars">${wl.map(x=>`<div class="bar-row"><span>${x.s.code}</span><div class="bar"><i style="width:${(x.n/mx*100).toFixed(0)}%"></i></div><b class="num">${x.n}</b></div>`).join('')}</div></section>`;})()}
@@ -1000,7 +943,9 @@ function skelFor(k){
 }
 function viewKey(){if(S.screen==='landing')return 'landing';if(S.screen==='page')return 'page:'+S.page;const c=cur();return c?c.v+':'+(c.id||c.code||''):S.role+'_'+nav().tab;}
 function viewLoading(){
- const k=viewKey();if(k==='landing'||k.startsWith('page:')||k.startsWith('newlisting')||k.startsWith('settings')||loadedViews.has(k))return false;
+ const k=viewKey();if(k==='landing'||k.startsWith('page:'))return false;
+ if(!READY)return true;
+ if(!S.slow||k.startsWith('newlisting')||k.startsWith('settings')||loadedViews.has(k))return false;
  if(!pendingViews.has(k))pendingViews.set(k,setTimeout(()=>{pendingViews.delete(k);loadedViews.add(k);if(viewKey()===k)afterLoad(k);},S.slow?2200:450));
  return true;
 }
@@ -1009,9 +954,9 @@ function navTo(){if(S.slow)loadedViews.delete(viewKey());}
 function header(){
  const unread=S.notes.filter(n=>n.to===meId()&&!n.read).length;
  return `<header class="band"><div class="band-in">
-  <button class="brand" data-act="landing" aria-label="Lodgely home page">${KEYMARK}<span>Lodgely</span><em>OAU · Ile-Ife</em></button>
-  <div class="hd">${themeCtl()}${S.role==='student'&&!LOGGED()?'<button class="demo-btn" data-act="login">Log in</button>':''}<button class="iconbtn" data-act="notes" ${S.role==='student'&&!LOGGED()?'hidden':''} aria-label="Notifications${unread?', '+unread+' unread':''}">${ic('bell',21)}${unread?`<b class="dot">${unread}</b>`:''}</button><button class="demo-btn" data-act="demo">${ic('clock',16)} Demo</button></div>
-  <div class="seg" role="tablist" aria-label="View the app as">${[['student','Student'],['agent','Agent'],['admin','Admin']].map(([r,l])=>`<button role="tab" aria-selected="${S.role===r}" class="${S.role===r?'on':''}" data-act="role" data-r="${r}">${l}</button>`).join('')}</div>
+  <button class="brand${DEMO?'':' solo'}" data-act="landing" aria-label="Lodgely home page">${KEYMARK}<span>Lodgely</span><em>OAU · Ile-Ife</em></button>
+  <div class="hd">${themeCtl()}${S.role==='student'&&!LOGGED()?'<button class="demo-btn" data-act="login">Log in</button>':''}<button class="iconbtn" data-act="notes" ${S.role==='student'&&!LOGGED()?'hidden':''} aria-label="Notifications${unread?', '+unread+' unread':''}">${ic('bell',21)}${unread?`<b class="dot">${unread}</b>`:''}</button>${DEMO?`<button class="demo-btn" data-act="demo">${ic('clock',16)} Demo</button>`:ME&&ME.role!=='student'?'<button class="demo-btn" data-act="logout">Log out</button>':''}</div>
+  ${DEMO?`<div class="seg" role="tablist" aria-label="View the app as">${[['student','Student'],['agent','Agent'],['admin','Admin']].map(([r,l])=>`<button role="tab" aria-selected="${S.role===r}" class="${S.role===r?'on':''}" data-act="role" data-r="${r}">${l}</button>`).join('')}</div>`:''}
  </div></header>`;
 }
 function tabbar(){
@@ -1025,9 +970,10 @@ function body(){
  const c=cur();
  let clock=SHIFT?`<div class="clockbar">${ic('clock',16)}<span>Demo clock: ${fmtDate(now())} (${SHIFT>0?'+':''}${Math.round(SHIFT/DAY)} days)</span><button class="link" data-act="today">Back to today</button></div>`:'';
  if(S.role==='student'&&!LOGGED()&&!c&&SIGNED_OUT[nav().tab]){const [t,d]=SIGNED_OUT[nav().tab];return clock+`<div class="narrow">${head('Not logged in',t)}<div class="empty">${ic('lock',28)}<p>${d}</p><div class="btns" style="justify-content:center"><button class="btn sm" data-act="signup">Create an account</button><button class="btn sm ghost" data-act="login">Log in</button></div></div></div>`;}
- const susp=S.role==='student'&&LOGGED()&&S.students[MYID()].suspended?`<div class="clockbar" style="background:var(--bad-soft);color:var(--bad)">${ic('alert',16)}<span>Your account is suspended: ${esc(S.students[MYID()].suspendReason||'')}. You can't book, pay or message.</span></div>`:S.role==='agent'&&agent(MYID()).status==='suspended'?`<div class="clockbar" style="background:var(--bad-soft);color:var(--bad)">${ic('alert',16)}<span>Your account is suspended: ${esc(agent(MYID()).suspendReason||'')}. Your houses are hidden from students.</span></div>`:'';
+ const susp=S.role==='student'&&LOGGED()&&ME.suspended?`<div class="clockbar" style="background:var(--bad-soft);color:var(--bad)">${ic('alert',16)}<span>Your account is suspended: ${esc((S.students[MYID()]||{}).suspendReason||'')}. You can't book, pay or message.</span></div>`:S.role==='agent'&&agent(MYID()).status==='suspended'?`<div class="clockbar" style="background:var(--bad-soft);color:var(--bad)">${ic('alert',16)}<span>Your account is suspended: ${esc(agent(MYID()).suspendReason||'')}. Your houses are hidden from students.</span></div>`:'';
  clock=susp+clock;
  const loading=viewLoading();
+ if(S.role==='agent'&&ME&&ME.role==='agent'&&!['verified','suspended'].includes(agent(MYID()).status)&&!c&&!loading)return clock+`<div class="narrow">${V.pending({id:MYID()})}</div>`;
  if(c){if(loading)return clock+`<div class="narrow">${skelFor(c.v)}</div>`;const f=V[c.v];return clock+`<div class="narrow">${f?f(c):gone()}</div>`;}
  const key=S.role+'_'+nav().tab,f=V[key];
  if(loading&&key!=='student_explore'){const sk=skelFor(key);return clock+(WIDE.includes(key)?sk:`<div class="narrow">${sk}</div>`);}
@@ -1035,6 +981,7 @@ function body(){
  return clock+(WIDE.includes(key)?html:`<div class="narrow">${html}</div>`);
 }
 function render(){
+ if(!READY){app.innerHTML='<div class="boot" aria-busy="true"><div class="boot-mark"></div><p>Loading Lodgely…</p></div>';return;}
  if(S.screen==='landing'){app.innerHTML=landingHeader()+`<main id="main" class="land">${landing()}</main>`;return;}
  if(S.screen==='page'){app.innerHTML=landingHeader()+`<main id="main" class="land">${pageView()}</main>`;return;}
  app.innerHTML=header()+`<main class="wrap" id="main">${body()}</main>`+tabbar();
@@ -1057,13 +1004,17 @@ function methodPicker(m){
  return `<div class="methods" role="radiogroup" aria-label="Payment method">
   <label class="opt"><input type="radio" name="pm" value="bank" data-bind="modal.method" data-rerender="modal" ${m.method==='bank'?'checked':''}><span><b>Bank transfer</b><small>Send to a one-time account number</small></span></label>
   <label class="opt"><input type="radio" name="pm" value="momo" data-bind="modal.method" data-rerender="modal" ${m.method==='momo'?'checked':''}><span><b>Mobile money</b><small>OPay, PalmPay or MoMo PSB</small></span></label></div>
-  ${m.method==='bank'?`<div class="acct"><div><span class="muted">Account number</span><b class="mono">9912 403 551</b></div><div><span class="muted">Account name</span><b>Lodgely Escrow (demo)</b></div><div><span class="muted">Valid for</span><b>30 minutes</b></div></div>`
+  ${m.method==='bank'?`<div class="acct"><div><span class="muted">Account number</span><b class="mono">9912 403 551</b></div><div><span class="muted">Account name</span><b>Lodgely Escrow (test)</b></div><div><span class="muted">Valid for</span><b>30 minutes</b></div></div>`
   :`<div class="grid2"><div class="field"><label for="wal">Wallet</label><select id="wal" class="in" data-bind="modal.wallet">${['OPay','PalmPay','MoMo PSB'].map(w=>`<option ${m.wallet===w?'selected':''}>${w}</option>`).join('')}</select></div><div class="field"><label for="ph">Phone number</label><input id="ph" class="in" inputmode="tel" value="${esc(m.phone)}" data-bind="modal.phone"></div></div>`}`;
 }
+function providerView(m){return `<div class="proc"><div class="spinner" role="status" aria-label="Waiting for payment"></div><h2>Finish paying on Paystack</h2><p class="muted">A secure Paystack page opened. Pay there with card, bank transfer or USSD. This screen updates by itself when the payment is confirmed.</p>
+ <div class="btns" style="justify-content:center"><button class="btn sm" data-act="payCheck">I've paid. Check now</button><button class="btn sm ghost" data-act="payCancel">Cancel payment</button></div><p class="fine mono">Reference ${esc(m.ref||'')}</p></div>`;}
+const testNote=()=>PAYMODE==='paystack'?'Payments are processed securely by Paystack.':'Test mode: no real money moves.';
 MODALS.checkout=m=>{
  const h=house(m.houseId);
+ if(m.stage==='provider')return providerView(m);
  const title={inspection:'Pay inspection fee',rent:'Pay rent',renewal:'Renew your key'}[m.kind];
- if(m.stage==='processing')return `<div class="proc"><div class="spinner" role="status" aria-label="Confirming"></div><h2>Confirming payment</h2><p class="muted">Waiting for ${m.method==='bank'?'your bank transfer':esc(m.wallet)} to confirm.</p></div>`;
+ if(m.stage==='processing')return `<div class="proc"><div class="spinner" role="status" aria-label="Confirming"></div><h2>${PAYMODE==='paystack'?'Opening Paystack':'Confirming payment'}</h2><p class="muted">${PAYMODE==='paystack'?'One moment...':`Waiting for ${m.method==='bank'?'your bank transfer':esc(m.wallet)} to confirm.`}</p></div>`;
  if(m.stage==='done')return doneView(m);
  const bal=savBal(),canSav=m.kind!=='inspection'&&bal>0,sv=canSav&&m.useSav?Math.min(bal,m.amount):0,toPay=m.amount-sv;
  const bal0=m.ballotId?S.ballots.find(x=>x.id===m.ballotId):null;
@@ -1073,11 +1024,12 @@ MODALS.checkout=m=>{
    <dl class="dl"><div><dt>${m.kind==='inspection'?'Standard inspection fee':'Rent for one academic year'}</dt><dd>${fmt(m.amount)}</dd></div>
    ${canSav?`<div><dt><label class="chk"><input type="checkbox" data-bind="modal.useSav" data-rerender="modal" ${m.useSav?'checked':''}> Use rent savings (${fmt(bal)})</label></dt><dd>${sv?'− '+fmt(sv):'—'}</dd></div>`:''}
    <div class="tot"><dt>To pay now</dt><dd>${fmt(toPay)}</dd></div></dl></div>
-  ${toPay>0?methodPicker(m):`<p class="note ok-t">${ic('check',16)} <span>Your savings cover the full amount.</span></p>`}
+  ${toPay>0?(PAYMODE==='paystack'?`<p class="note">${ic('card',16)} <span>You'll pay on Paystack's secure page: card, bank transfer or USSD.</span></p>`:methodPicker(m)):`<p class="note ok-t">${ic('check',16)} <span>Your savings cover the full amount.</span></p>`}
+  ${m.err?`<p class="err">${esc(m.err)}</p>`:''}
   ${m.kind==='rent'&&!m.ballotId&&m.holdUntil?`<p class="note warn-t">${ic('clock',16)} <span>Held for you for <b class="mono" data-hold="${m.holdUntil}">15:00</b>. Other students see this room as pending payment until then. <button class="link small" data-act="releaseRoom" data-h="${m.houseId}" data-r="${m.roomId}">Release the room</button></span></p>`:''}
   <p class="note">${ic('shield',16)} <span>${m.kind==='rent'?'Lodgely holds your rent until you confirm move-in. If the room is not handed over, raise a dispute and admin steps in.':m.kind==='inspection'?'The fee goes to the agent. You get it back if they cancel or do not show up.':`Your key extends by ${TERM} days from its current end date.`}</span></p>
-  <button class="btn block" data-act="pay">${toPay<=0?'Pay with savings':m.method==='bank'?`I've sent ${fmt(toPay)}`:`Pay ${fmt(toPay)}`}</button>
-  <p class="fine">Demo checkout. No real money moves.</p>`;
+  <button class="btn block" data-act="pay">${toPay<=0?'Pay with savings':PAYMODE==='paystack'?`Pay ${fmt(toPay)} with Paystack`:m.method==='bank'?`I've sent ${fmt(toPay)}`:`Pay ${fmt(toPay)}`}</button>
+  <p class="fine">${testNote()}</p>`;
 };
 function doneView(m){
  const r=m.result||{};
@@ -1147,17 +1099,18 @@ MODALS.goal=m=>{
  ${m.err?`<p class="err">${m.err}</p>`:''}<button class="btn block" data-act="saveGoal">Save goal</button>`;
 };
 MODALS.deposit=m=>{
+ if(m.stage==='provider')return providerView(m);
  if(m.stage==='processing')return `<div class="proc"><div class="spinner" role="status" aria-label="Processing"></div><h2>Adding to your savings</h2></div>`;
  if(m.stage==='done')return `<div class="done"><div class="okmark">${ic('check',28)}</div><h2>Added ${fmt(+m.amt)}</h2><p class="muted">Your savings balance is now ${fmt(savBal())}.</p><button class="btn block" data-act="closeModal">Done</button></div>`;
  return `${mhead('Add to rent savings')}<div class="amts">${[5000,10000,20000,50000].map(v=>`<button class="tog ${+m.amt===v?'on':''}" data-act="depAmt" data-v="${v}">${fmt(v)}</button>`).join('')}</div>
   <div class="field"><label for="dep">Amount (₦)</label><input id="dep" class="in" inputmode="numeric" value="${esc(m.amt)}" data-bind="modal.amt"></div>
   <div class="field"><span class="lbl">From</span><div class="opts2"><label class="opt"><input type="radio" name="dm" value="momo" data-bind="modal.method" ${m.method==='momo'?'checked':''}><span>Mobile money</span></label><label class="opt"><input type="radio" name="dm" value="bank" data-bind="modal.method" ${m.method==='bank'?'checked':''}><span>Bank transfer</span></label></div></div>
-  ${m.err?`<p class="err">${m.err}</p>`:''}<button class="btn block" data-act="doDeposit">Add money</button><p class="fine">Demo only. No real money moves.</p>`;
+  ${m.err?`<p class="err">${esc(m.err)}</p>`:''}<button class="btn block" data-act="doDeposit">Add money</button><p class="fine">${testNote()}</p>`;
 };
 MODALS.withdraw=m=>{
  const g=S.savings.goal,due=new Date(g.due+'T00:00').getTime(),bal=savBal();
  if(g.mode==='locked'&&now()<due)return `${mhead('Withdraw')}<p>${ic('lock',16)} Your savings are locked until <b>${fmtDate(due)}</b>.</p><p class="muted">You chose a lock when you set this goal. You can still use the money for rent at checkout, or switch the goal to flexible for future deposits.</p><button class="btn block" data-act="closeModal">Got it</button>`;
- return `${mhead('Withdraw')}<p class="muted">Flexible savings: withdraw any amount, no fee. Balance ${fmt(bal)}.</p><div class="field"><label for="wd">Amount (₦)</label><input id="wd" class="in" inputmode="numeric" value="${esc(m.amt)}" data-bind="modal.amt"></div>${m.err?`<p class="err">${m.err}</p>`:''}<button class="btn block" data-act="doWithdraw">Withdraw to mobile money</button>`;
+ return `${mhead('Withdraw')}<p class="muted">Flexible savings: withdraw any amount, no fee. Balance ${fmt(bal)}.</p><div class="field"><label for="wd">Amount (₦)</label><input id="wd" class="in" inputmode="numeric" value="${esc(m.amt)}" data-bind="modal.amt"></div>${m.err?`<p class="err">${m.err}</p>`:''}<button class="btn block" data-act="doWithdraw">Withdraw</button>${PAYMODE==='paystack'?'<p class="fine">Withdrawals reach your bank or wallet within 24 hours.</p>':''}`;
 };
 MODALS.notes=m=>{
  const L=S.notes.filter(n=>n.to===meId()).slice(0,25);
@@ -1202,18 +1155,18 @@ MODALS.waitlist=m=>{
 const ID_TYPES=['NIN slip','International passport',"Driver's licence","Voter's card"],PROOF_TYPES=['Letter of authority from the owner','Certificate of occupancy','Property management agreement','Recent utility bill for the property'];
 MODALS.agentSignup=m=>{
  const stepLbl=n=>`<p class="eyebrow">Step ${n} of 3</p>`;
- if(m.stage==='done')return `<div class="done"><div class="okmark">${ic('check',28)}</div><h2>Application received</h2><p class="muted">Admin checks your ID and documents within 12 to 24 hours. You can add houses once you're verified.</p><p class="hint" style="justify-self:center">Demo: your application is waiting in Admin, Users. You'll continue as Kunle Oladipo, a verified agent.</p><button class="btn block" data-act="viewApplication">See your application status</button><button class="btn block ghost" data-act="agentSignupContinue">Continue to the agent view</button></div>`;
- if(m.stage==='code')return `${mhead('Confirm your phone')}${stepLbl(2)}<p class="muted">We sent a 6-digit code to ${esc(m.phone)}.</p>
+ if(m.stage==='done')return `<div class="done"><div class="okmark">${ic('check',28)}</div><h2>Application received</h2><p class="muted">Admin checks your ID and documents within 12 to 24 hours. You can add houses once you're verified.</p>${DEMO?`<p class="hint" style="justify-self:center">Demo: your application is waiting in Admin, Users. Log in as admin to approve it, or continue as Kunle Oladipo, a verified agent.</p>`:''}<button class="btn block" data-act="viewApplication">See your application status</button>${DEMO?'<button class="btn block ghost" data-act="agentSignupContinue">Continue as Kunle (sample agent)</button>':''}</div>`;
+ if(m.stage==='code')return `${mhead('Confirm your email')}${stepLbl(2)}<p class="muted">We sent a 6-digit code to ${esc(m.email)}. Check spam if you can't see it.</p>
   <input id="as-otp" class="in mono" style="font-size:26px;letter-spacing:.35em;text-align:center" inputmode="numeric" maxlength="6" autocomplete="one-time-code" aria-label="6-digit code" data-enter="verifyAgentCode" placeholder="000000">
   ${m.err?`<p class="err">${esc(m.err)}</p>`:''}<button class="btn block" data-act="verifyAgentCode">Confirm</button>
-  <p class="hint" style="justify-self:center">Demo: the code is <b class="mono">${m.code}</b></p><p class="fine"><button class="link small" data-act="resendAgentCode">Send a new code</button></p>`;
+  ${DEMO&&m.code?`<p class="hint" style="justify-self:center">Demo: the code is <b class="mono">${m.code}</b></p>`:''}<p class="fine"><button class="link small" data-act="resendAgentCode">Send a new code</button></p>`;
  if(m.stage==='docs')return `${mhead('Upload your documents')}${stepLbl(3)}<p class="muted">Admin compares these with your details before your houses can go live. Photos or PDFs up to 10 MB.</p>
   <div class="grid2">${sel('as-idtype','modal.idType',ID_TYPES,'ID document','none')}<div class="field"><label for="as-idfile">Upload ID</label><input id="as-idfile" class="in" type="file" accept="image/*,.pdf"></div></div>
   ${m.idFile?`<p class="note ok-t">${ic('check',16)} <span>${esc(m.idFile)}</span></p>`:''}
   <div class="grid2">${sel('as-prooftype','modal.proofType',PROOF_TYPES,'Proof you can let the property','none')}<div class="field"><label for="as-prooffile">Upload proof</label><input id="as-prooffile" class="in" type="file" accept="image/*,.pdf"></div></div>
   ${m.proofFile?`<p class="note ok-t">${ic('check',16)} <span>${esc(m.proofFile)}</span></p>`:''}
-  ${m.err?`<p class="err">${esc(m.err)}</p>`:''}<button class="btn block" data-act="submitAgentDocs">Send application</button><p class="fine">Demo only. Files stay in your browser and are not uploaded anywhere.</p>`;
- return `${mhead('Register as an agent')}${stepLbl(1)}<p class="muted">Tell us who you are. Next you'll confirm your phone and upload your ID and proof that you can let the property.</p>
+  ${m.err?`<p class="err">${esc(m.err)}</p>`:''}<button class="btn block" data-act="submitAgentDocs" ${m.sending?'disabled':''}>${m.sending?'Uploading...':'Send application'}</button><p class="fine">${DEMO?'Demo: files stay in your browser and are not uploaded anywhere.':'Only Lodgely admins can see these documents.'}</p>`;
+ return `${mhead('Register as an agent')}${stepLbl(1)}<p class="muted">Tell us who you are. Next you'll confirm your email and upload your ID and proof that you can let the property.</p>
  <div class="field"><label for="as-name">Full name (as on your ID)</label><input id="as-name" class="in" value="${esc(m.name)}" data-bind="modal.name" autocomplete="name"></div>
  <div class="field"><label for="as-biz">Business or property name</label><input id="as-biz" class="in" value="${esc(m.biz)}" data-bind="modal.biz"></div>
  <div class="grid2"><div class="field"><label for="as-phone">WhatsApp number</label><input id="as-phone" class="in" inputmode="tel" value="${esc(m.phone)}" data-bind="modal.phone" placeholder="0803 123 4567"></div><div class="field"><label for="as-email">Email</label><input id="as-email" class="in" type="email" value="${esc(m.email)}" data-bind="modal.email"></div></div>
@@ -1225,10 +1178,6 @@ MODALS.agentSignup=m=>{
 const TAKEDOWN_REASONS=['Fake or misleading listing','Reports of payment outside Lodgely','Duplicate of another listing','Owner or agent asked','Something else'];
 const SUSPEND_AGENT=['Asked students to pay outside Lodgely','Repeated no-shows','Fake or misleading listings','Abusive behaviour','Something else'];
 const SUSPEND_STUDENT=['Asked to pay outside Lodgely','Abusive behaviour','Fake reports or complaints','Something else'];
-function cancelVisitsFor(pred,why){
- let n=0;S.inspections.filter(i=>i.status==='booked'&&pred(i)).forEach(i=>{const h=house(i.houseId),p=S.payments.find(x=>x.id===i.payId);i.status='cancelled';i.byAdmin=true;if(p)p.status='refunded';note(i.studentId,`${why}, so your visit on ${fmtSlot(i.slot)} was cancelled and your ${fmt(FEE)} refunded.`);n++;});
- return n;
-}
 MODALS.takedown=m=>{const h=house(m.id),nv=S.inspections.filter(i=>i.houseId===h.id&&i.status==='booked').length;
  return `${mhead('Take down '+esc(h.title)+'?')}<p class="muted">Students won't find it or be able to book it. ${nv?`${nv} booked visit${nv>1?'s':''} will be cancelled and refunded. `:''}Current tenants keep their keys. The agent is told why.</p>
  <div class="field"><span class="lbl">Reason</span><div class="methods" role="radiogroup" aria-label="Reason">${TAKEDOWN_REASONS.map(r=>`<label class="opt"><input type="radio" name="tdr" value="${r}" data-bind="modal.reason" ${m.reason===r?'checked':''}><span>${r}</span></label>`).join('')}</div></div>
@@ -1250,191 +1199,84 @@ MODALS.payout=m=>`${mhead('Payout account')}<p class="muted">Lodgely pays your s
 MODALS.info=m=>`${mhead(m.title)}<p class="muted">${esc(m.text)}</p><div class="btns end">${m.act?`<button class="btn ghost" data-act="${m.act}" data-id="${m.id}">${m.actLabel}</button>`:''}<button class="btn" data-act="closeModal">OK</button></div>`;
 const GATED={fav:'save houses',message:'message agents',book:'book an inspection',rent:'pay rent',rentBallot:'pay rent',joinBallot:'join a ballot',lodgeComplaint:'post a complaint',enterCode:'confirm a visit'};
 const SIGNED_OUT={saved:['Saved houses','Log in to keep a list of houses you like.'],lodge:['My lodge','Your subscription key, visits and payments show up here once you log in.'],savings:['Rent savings','Log in to save toward next year\'s rent, bit by bit.'],messages:['Chats','Log in to message agents about a house.']};
-function loginAs(who){
+async function afterLogin(){
  const p=S.pendingAct;S.pendingAct=null;S.modal=null;
- if(who==='agent'){renderModal();enterApp('agent','home');toast('Logged in as Kunle Oladipo.');return;}
- LOGGED()=true;save();
- if(S.screen==='landing'&&!p){renderModal();enterApp('student','explore');toast('Logged in as Tolu Adebayo.');return;}
- render();renderModal();toast('Logged in as Tolu Adebayo.');
+ try{await refresh();}catch(e){toast(e.message);}
+ if(!ME){renderModal();render();return;}
+ const hi='Logged in as '+ME.name+'.';
+ if(ME.role!=='student'){renderModal();enterApp(ME.role,ME.role==='agent'?'home':'overview');toast(hi);return;}
+ save();
+ if(S.screen==='landing'&&!p){renderModal();enterApp('student','explore');toast(hi);return;}
+ render();renderModal();toast(hi);
  if(p&&ACT[p.act])ACT[p.act]({dataset:p.data,closest:()=>null});
 }
 MODALS.auth=m=>{
  const err=m.err?`<p class="err">${esc(m.err)}</p>`:'',hint=t=>`<p class="hint" style="justify-self:center">${t}</p>`;
  if(m.step==='gate')return `${mhead('Sign up to '+m.why)}<p class="muted">Anyone can browse houses. To ${m.why}, you need a free Lodgely account. It keeps your payments, key and chats in one place.</p>
   <button class="btn block" data-act="authGo" data-s="signup">Create an account</button><button class="btn block ghost" data-act="authGo" data-s="login">Log in</button>
-  ${hint(`Demo: <button class="link" data-act="demoLogin">continue as Tolu, a sample student</button>`)}`;
+  ${DEMO?hint(`Demo: <button class="link" data-act="demoLogin">continue as Tolu, a sample student</button>`):''}`;
  if(m.step==='signup')return `${mhead('Create your account')}
   <div class="field"><label for="su-name">Full name</label><input id="su-name" class="in" value="${esc(m.name)}" autocomplete="name"></div>
   <div class="grid2"><div class="field"><label for="su-phone">Phone number</label><input id="su-phone" class="in" inputmode="tel" value="${esc(m.phone)}" placeholder="0812 345 6789" autocomplete="tel"></div><div class="field"><label for="su-email">Email</label><input id="su-email" class="in" type="email" value="${esc(m.email)}" autocomplete="email"></div></div>
   <div class="grid2"><div class="field"><label for="su-school">School</label><select id="su-school" class="in">${SCHOOLS.map(s=>`<option value="${s.id}" ${m.school===s.id?'selected':''}>${s.code}${s.live?'':' (coming soon)'}</option>`).join('')}</select></div><div class="field"><label for="su-dept">Department and level</label><input id="su-dept" class="in" value="${esc(m.dept)}" placeholder="e.g. Law, 200L"></div></div>
   <div class="field"><label for="su-pw">Password</label><input id="su-pw" class="in" type="password" autocomplete="new-password" placeholder="At least 8 characters"></div>
   ${err}<button class="btn block" data-act="doSignup">Create account</button><p class="fine">Already have an account? <button class="link small" data-act="authGo" data-s="login">Log in</button></p>`;
- if(m.step==='code')return `${mhead('Confirm your phone')}<p class="muted">We sent a 6-digit code to ${esc(m.phone)}. Enter it to confirm the number is yours.</p>
+ if(m.step==='code')return `${mhead('Confirm your email')}<p class="muted">We sent a 6-digit code to ${esc(m.email)}. Enter it to confirm the address is yours. Check spam if you can't see it.</p>
   <input id="otp" class="in mono" style="font-size:26px;letter-spacing:.35em;text-align:center" inputmode="numeric" maxlength="6" autocomplete="one-time-code" aria-label="6-digit code" data-enter="verifyCode" placeholder="000000">
-  ${err}<button class="btn block" data-act="verifyCode">Confirm</button>${hint(`Demo: the code is <b class="mono">${m.code}</b>`)}<p class="fine"><button class="link small" data-act="resendCode">Send a new code</button></p>`;
- if(m.step==='done')return `<div class="done"><div class="okmark">${ic('check',28)}</div><h2>Welcome, ${esc((m.name||'').split(' ')[0])}</h2><p class="muted">Your account is ready and your phone is confirmed.</p>${hint("Demo: you'll continue as Tolu Adebayo, a sample student with visits, a key and savings, so you can see a lived-in account.")}<button class="btn block" data-act="authDone">Continue</button></div>`;
+  ${err}<button class="btn block" data-act="verifyCode">Confirm</button>${DEMO&&m.code?hint(`Demo: the code is <b class="mono">${m.code}</b>`):''}<p class="fine"><button class="link small" data-act="resendCode">Send a new code</button></p>`;
+ if(m.step==='done')return `<div class="done"><div class="okmark">${ic('check',28)}</div><h2>Welcome, ${esc((m.name||'').split(' ')[0])}</h2><p class="muted">Your account is ready and your email is confirmed.</p><button class="btn block" data-act="authDone">Continue</button></div>`;
  if(m.step==='login')return `${mhead('Log in')}<div class="seg2" role="group" aria-label="I am a" style="justify-self:start">${[['student','Student'],['agent','Agent']].map(([k,l])=>`<button class="${(m.who||'student')===k?'on':''}" data-act="authWho" data-w="${k}" aria-pressed="${(m.who||'student')===k}">${l}</button>`).join('')}</div>
-  <div class="field"><label for="li-id">Email or phone number</label><input id="li-id" class="in" value="${esc(m.id)}" autocomplete="username"></div>
+  <div class="field"><label for="li-id">${DEMO?'Email or phone number':'Email'}</label><input id="li-id" class="in" value="${esc(m.id)}" autocomplete="username"></div>
   <div class="field"><div class="row-between"><label for="li-pw">Password</label><button class="link small" data-act="authGo" data-s="forgot">Forgot password?</button></div><input id="li-pw" class="in" type="password" autocomplete="current-password" data-enter="doLogin"></div>
   ${err}<button class="btn block" data-act="doLogin">Log in</button>
   ${(m.who||'student')==='student'?`<p class="fine">New to Lodgely? <button class="link small" data-act="authGo" data-s="signup">Create an account</button></p>`:`<p class="fine">New agent? <button class="link small" data-act="agentSignup">Register as an agent</button></p>`}
-  ${hint(`Demo: any email or phone and password work. You log in as ${(m.who||'student')==='student'?'Tolu Adebayo':'Kunle Oladipo'}.`)}`;
- if(m.step==='forgot')return `${mhead('Reset your password')}<p class="muted">Enter the email address or phone number on your account and we'll send you a 6-digit code.</p>
+  ${DEMO?hint(`Demo: sample accounts are tolu@example.com (student), kunle@example.com (agent) and admin@example.com, with any password. Accounts you create here work too.`):''}`;
+ if(m.step==='forgot')return `${mhead('Reset your password')}<p class="muted">Enter the email address on your account and we'll send you a 6-digit code.</p>
   <div class="field"><label for="fp-id">Email or phone number</label><input id="fp-id" class="in" value="${esc(m.id)}" data-enter="sendReset"></div>
   ${err}<button class="btn block" data-act="sendReset">Send code</button><p class="fine"><button class="link small" data-act="authGo" data-s="login">Back to log in</button></p>`;
  if(m.step==='reset')return `${mhead('Choose a new password')}<p class="muted">We sent a code to ${esc(m.id)}.</p>
   <div class="field"><label for="rs-code">6-digit code</label><input id="rs-code" class="in mono" inputmode="numeric" maxlength="6" autocomplete="one-time-code"></div>
   <div class="field"><label for="rs-pw">New password</label><input id="rs-pw" class="in" type="password" autocomplete="new-password" placeholder="At least 8 characters"></div>
   <div class="field"><label for="rs-pw2">Repeat new password</label><input id="rs-pw2" class="in" type="password" autocomplete="new-password"></div>
-  ${err}<button class="btn block" data-act="doReset">Save new password</button>${hint(`Demo: the code is <b class="mono">${m.code}</b>`)}`;
+  ${err}<button class="btn block" data-act="doReset">Save new password</button>${DEMO&&m.code?hint(`Demo: the code is <b class="mono">${m.code}</b>`):''}`;
  if(m.step==='resetDone')return `<div class="done"><div class="okmark">${ic('check',28)}</div><h2>Password changed</h2><p class="muted">Log in with your new password.</p><button class="btn block" data-act="authGo" data-s="login">Log in</button></div>`;
  return mhead('Account');
 };
 
-/* ---------- money + time logic ---------- */
-function releaseKey(k,reason){
- const p=S.payments.find(x=>x.id===k.payId);const h=house(k.houseId),r=room(h,k.roomId);
- k.movedIn=reason!=='Auto-released after 7 days'?true:k.movedIn;
- if(p&&p.status==='held'){p.status='released';p.releasedAt=now();note(h.agentId,`${fmt(p.amount*(1-COMM))} released to you for ${r.name} at ${h.title} after ${COMM*100}% commission. ${reason}.`);}
+/* ---------- checkout ---------- */
+const methodLabel=m=>m.method==='bank'?'Bank transfer':m.method==='card'?'Card':(m.wallet||'Mobile money');
+// Start a payment; simulated mode confirms it here, Paystack mode opens Paystack's page.
+async function startPay(m){
+ m.stage='processing';m.err='';renderModal();
+ try{
+  const co=await B.call('start_checkout',{kind:m.kind,houseId:m.houseId,roomId:m.roomId,slot:m.slot,ballotId:m.ballotId,keyCode:m.code,amount:m.amount,useSav:!!m.useSav,method:methodLabel(m)});
+  m.ref=co.ref;
+  let res=co.result;
+  if(!res&&co.mode==='simulated'){await sleep(1100);res=await B.call('simulate_pay',{ref:co.ref});}
+  if(!res&&co.mode==='paystack'){res=await providerPay(m,co);if(!res)return;}
+  await refresh();
+  if(S.modal!==m){save();render();if(res&&!res.error)toast('Payment confirmed.');return;}
+  if(res.error){m.stage='form';m.err=res.error;}else{m.result=res;m.stage='done';}
+  save();render();renderModal();
+ }catch(e){if(S.modal===m){m.stage='form';m.err=e.message;renderModal();}else toast(e.message);try{await refresh();render();}catch(_){}}
 }
-function renewFromSavings(k){
- const h=house(k.houseId),r=room(h,k.roomId),t=now();
- S.savings.txns.unshift({id:uid('x'),type:'applied',amt:r.price,t,note:'Auto-renewal · '+h.title});
- S.payments.push({id:uid('p'),kind:'renewal',studentId:k.studentId,houseId:h.id,roomId:r.id,amount:r.price,savingsUsed:r.price,method:'Rent savings',ref:payRef(),time:t,status:'released'});
- k.end+=TERM*DAY;k.shown=[];k.renewals=(k.renewals||0)+1;k.notRenewing=false;cancelBallotFor(k);
- note(MYID(),`Auto-renewed ${h.title} from savings. New end date ${fmtDate(k.end)}.`);
- note(h.agentId,`${stu(k.studentId).name} renewed ${r.name} at ${h.title} for another ${TERM} days.`);
-}
-function checkKeys(){
- let ch=false;const t=now();
- for(const k of S.keys){
-  if(k.status!=='active')continue;
-  const h=house(k.houseId),r=room(h,k.roomId),p=S.payments.find(x=>x.id===k.payId);
-  if(!k.movedIn&&p&&p.status==='held'&&t-k.start>7*DAY){releaseKey(k,'Auto-released after 7 days');ch=true;}
-  if(t>=k.end){
-   if(k.autoRenew&&savBal()>=r.price){renewFromSavings(k);ch=true;continue;}
-   const bo=S.ballots.find(x=>x.keyCode===k.code&&x.status==='open');
-   k.status='expired';r.occ=r.occ.filter(c=>c!==k.code);
-   if(bo)drawBallot(bo);
-   note(h.agentId,`${stu(k.studentId).name}'s key for ${r.name} at ${h.title} ended.${r.occ.length>=r.cap?' The next tenant moves in now.':r.hold?' The room is held for the ballot winner.':' The room is listed as Available again.'}`);
-   if(k.studentId===MYID())note(MYID(),`Your key for ${h.title} has ended.${r.occ.length>=r.cap?' The next tenant moves in now.':r.hold?' The room is held for the ballot winner.':' The room is back on the market.'}`);
-   ch=true;continue;
-  }
-  if(k.start>t)continue;
-  if(k.end-t<=60*DAY&&!ballotForKey(k.code)&&!S.keys.some(x=>x.roomId===k.roomId&&x.status==='active'&&x.start>t)&&!(k.studentId===MYID()&&k.autoRenew&&savBal()>=r.price)){
-   openBallot(k,k.end);
-   note(h.agentId,`${r.name} at ${h.title} frees up on ${fmtDate(k.end)}. Ballot entries are open, and ${stu(k.studentId).name} keeps first right to renew.`);
-   if(k.studentId===MYID())note(MYID(),`Other students can now enter a ballot for your room at ${h.title}. You keep first right to renew until ${fmtDate(k.end)}.`);
-   ch=true;
-  }
-  if(k.studentId===MYID()){
-   const dl=(k.end-t)/DAY,hit=[60,30,7,1].filter(x=>dl<=x&&!k.shown.includes(x));
-   if(hit.length){k.shown.push(...hit);const th=Math.min(...hit);note(MYID(),`${th} day${th>1?'s':''} left on your key for ${h.title}. Renew in the app.`);if(!S.modal&&LOGGED()&&!S.ballots.some(x=>x.keyCode===k.code&&(x.status==='drawn'||x.status==='filled')))S.modal={type:'renew',code:k.code,t:th};ch=true;}
-  }
+// Paystack: open the hosted checkout, then wait for the server to confirm.
+async function providerPay(m,co){
+ m.stage='provider';renderModal();
+ let base='';try{base=(import.meta.env.VITE_PUBLIC_URL||'')||(location.protocol.startsWith('http')&&!/localhost/.test(location.host)?location.origin+location.pathname:'');}catch(e){}
+ const {url}=await B.providerCheckout(co.ref,base?base+'?pay='+encodeURIComponent(co.ref):'');
+ let closed=false;
+ await openExternal(url,()=>{closed=true;});
+ const t0=Date.now();
+ while(S.modal===m&&m.stage==='provider'&&Date.now()-t0<20*6e4){
+  await sleep(closed?800:3000);
+  let st=await B.call('payment_status',{ref:co.ref});
+  if(st.status==='pending'&&(closed||m.check||Date.now()-t0>15000)){try{await B.providerVerify(co.ref);}catch(e){}st=await B.call('payment_status',{ref:co.ref});}
+  m.check=false;
+  if(st.status!=='pending'){closeExternal();return st.result||{error:st.status==='expired'?'The payment was cancelled.':'The payment did not go through. You have not been charged.'};}
+  if(closed&&Date.now()-t0>4000){closed=false;}
  }
- for(const hh of S.houses)for(const rr of hh.rooms)if(rr.payHold&&rr.payHold.until<=t){rr.payHold=null;ch=true;}
- for(const i of S.inspections){
-  if(i.status!=='booked')continue;
-  const left=i.slot-t,h=house(i.houseId);if(!h)continue;
-  if(left<=36e5&&left>-36e5&&!i.r1){i.r1=true;i.r24=true;note(i.studentId,`Your visit to ${h.title} starts within the hour (${fmtSlot(i.slot)}). Meet ${agent(h.agentId).name} at ${h.address}.`);note(h.agentId,`${stu(i.studentId).name} visits ${h.title} within the hour. Have your door code ready.`);ch=true;}
-  else if(left<=24*36e5&&left>36e5&&!i.r24){i.r24=true;note(i.studentId,`Reminder: your visit to ${h.title} is on ${fmtSlot(i.slot)}, less than 24 hours away.`);note(h.agentId,`Reminder: ${stu(i.studentId).name} visits ${h.title} on ${fmtSlot(i.slot)}.`);ch=true;}
- }
- const g=S.savings.goal;
- if(g.sched&&g.sched!=='none'&&g.schedAmt>0&&g.nextAuto){
-  const due=new Date(g.due+'T00:00').getTime(),step=(g.sched==='weekly'?7:30)*DAY;let n=0;
-  while(g.nextAuto<=t&&g.nextAuto<=due&&n<60){S.savings.txns.unshift({id:uid('x'),type:'deposit',amt:g.schedAmt,t:g.nextAuto,note:`${g.sched==='weekly'?'Weekly':'Monthly'} auto-save`});g.nextAuto+=step;n++;}
-  if(n){note(MYID(),`${n>1?n+' automatic deposits':'An automatic deposit'} of ${fmt(g.schedAmt)} went into your rent savings.`);ch=true;}
- }
- for(const b of S.ballots){
-  if(b.status==='open'&&t>=b.drawAt){drawBallot(b);ch=true;}
-  else if(b.status==='drawn'){
-   const s=b.order[b.offerIdx];
-   if(s!==MYID()&&t-b.offerAt>6*36e5){simWinnerPays(b);ch=true;}
-   else if(s===MYID()&&t-b.offerAt>48*36e5){note(MYID(),`Your ballot offer for ${house(b.houseId).title} expired.`);advanceBallot(b);ch=true;}
-  }
- }
- return ch;
-}
-function openBallot(k,drawAt){
- const h=house(k.houseId),r=room(h,k.roomId);
- const pool=Object.keys(S.students).filter(s=>s!==k.studentId&&s!==MYID()&&!S.keys.some(x=>x.studentId===s&&x.status==='active'));
- const ent=pool.sort(()=>Math.random()-.5).slice(0,Math.min(pool.length,2+Math.floor(Math.random()*4)));
- const b={id:uid('b'),houseId:h.id,roomId:r.id,keyCode:k.code,created:now(),drawAt,entrants:ent,status:'open',order:[],offerIdx:0,offerAt:0};
- S.ballots.push(b);return b;
-}
-function cancelBallotFor(k){
- const b=S.ballots.find(x=>x.keyCode===k.code&&x.status==='open');if(!b)return;
- const h=house(b.houseId),r=room(h,b.roomId);b.status='cancelled';
- b.entrants.forEach(s=>note(s,`The tenant at ${h.title} renewed, so the ballot for ${r.name} was cancelled.`));
- note(h.agentId,`${stu(k.studentId).name} renewed, so the ballot for ${r.name} at ${h.title} was cancelled.`);
-}
-function drawBallot(b){
- const h=house(b.houseId),r=room(h,b.roomId);
- if(!b.entrants.length){b.status='lapsed';note(h.agentId,`Nobody entered the ballot for ${r.name} at ${h.title}. It lists normally when it frees up.`);return;}
- const o=b.entrants.filter(s=>!(S.students[s]&&S.students[s].suspended));if(!o.length){b.status='lapsed';note(h.agentId,`No eligible entries in the ballot for ${r.name} at ${h.title}. It lists normally when it frees up.`);return;}
- for(let i=o.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[o[i],o[j]]=[o[j],o[i]];}
- b.order=o;b.status='drawn';b.offerIdx=0;b.offerAt=now();r.hold=b.id;
- o.forEach((s,i)=>note(s,i===0?`You won the ballot for ${r.name} at ${h.title}. Pay within 48 hours to secure it.`:`Ballot drawn for ${h.title}. You are number ${i+1} in line.`));
- note(h.agentId,`Ballot drawn for ${r.name} at ${h.title}. ${stu(o[0]).name} has 48 hours to pay.`);
- note('admin',`Ballot drawn for ${h.title} with ${o.length} entries.`);
-}
-function advanceBallot(b){
- const h=house(b.houseId),r=room(h,b.roomId);
- b.offerIdx++;
- if(b.offerIdx>=b.order.length){b.status='lapsed';r.hold=null;note(h.agentId,`No ballot winner paid for ${r.name} at ${h.title}. It is open to everyone again.`);return;}
- b.offerAt=now();const s=b.order[b.offerIdx];
- note(s,`The room at ${h.title} came to you from the ballot. Pay within 48 hours to secure it.`);
- note(h.agentId,`The ballot offer for ${h.title} passed to ${stu(s).name}.`);
-}
-function simWinnerPays(b){
- const h=house(b.houseId),r=room(h,b.roomId),s=b.order[b.offerIdx],t=now(),start=startForBallot(b);
- const p={id:uid('p'),kind:'rent',studentId:s,houseId:h.id,roomId:r.id,amount:r.price,savingsUsed:0,method:'Bank transfer',ref:payRef(),time:t,status:'held'};
- const k={code:genKey(),payId:p.id,houseId:h.id,roomId:r.id,studentId:s,start,end:start+TERM*DAY,status:'active',movedIn:false,autoRenew:false,shown:[]};
- S.payments.push(p);S.keys.push(k);r.occ.push(k.code);r.hold=null;b.status='filled';b.winnerKey=k.code;
- note(h.agentId,`${stu(s).name} won the ballot and paid ${fmt(r.price)} for ${r.name} at ${h.title}. Lodgely holds it until move-in.`);
- if(b.entrants.includes(MYID()))note(MYID(),`The ballot for ${h.title} has been filled.`);
-}
-function finalizePay(m){
- const t=now(),h=house(m.houseId),bal=savBal();
- const sv=(m.kind!=='inspection'&&m.useSav)?Math.min(bal,m.amount):0;
- const method=m.amount-sv<=0?'Rent savings':m.method==='bank'?'Bank transfer':m.wallet;
- const p={id:uid('p'),kind:m.kind,studentId:MYID(),houseId:h.id,roomId:m.roomId||null,amount:m.amount,savingsUsed:sv,method,ref:payRef(),time:t,status:'held'};
- if(m.kind==='inspection'){
-  p.status='paid';S.payments.push(p);
-  const ins={id:uid('i'),houseId:h.id,studentId:MYID(),slot:m.slot,fee:FEE,payId:p.id,status:'booked',code:String(1000+Math.floor(Math.random()*9000))};
-  S.inspections.push(ins);
-  note(MYID(),`Visit booked at ${h.title} for ${fmtSlot(m.slot)}. Reminders go out 24 hours and 1 hour before.`);
-  note(h.agentId,`Tolu Adebayo booked a visit at ${h.title} for ${fmtSlot(m.slot)}. ${fmt(FEE*(1-COMM))} of the fee is yours.`);
-  let th=S.threads.find(x=>x.houseId===h.id&&x.studentId===MYID());
-  if(!th){th={id:uid('t'),houseId:h.id,studentId:MYID(),agentId:h.agentId,msgs:[]};S.threads.push(th);}
-  th.msgs.push({from:'a',text:`Visit confirmed for ${fmtSlot(m.slot)} at ${h.address}. Call me on ${agent(h.agentId).phone} when you get to the gate.`,t,read:false});
-  m.result={ref:p.ref};return;
- }
- const r=room(h,m.roomId);
- if(m.kind==='rent'){
-  const b=m.ballotId?S.ballots.find(x=>x.id===m.ballotId):null;
-  if(b){if(b.status!=='drawn'||b.order[b.offerIdx]!==MYID()){m.result={error:'This ballot offer is no longer yours. You have not been charged.'};return;}}
-  else if(!(roomState(r)==='open'||(roomState(r)==='pending'&&r.payHold.by===MYID()))){m.result={error:'Someone else just secured this room. You have not been charged.'};return;}
-  S.payments.push(p);
-  if(sv>0)S.savings.txns.unshift({id:uid('x'),type:'applied',amt:sv,t,note:'Rent · '+h.title});
-  const start=b?startForBallot(b):t;
-  const k={code:genKey(),payId:p.id,houseId:h.id,roomId:r.id,studentId:MYID(),start,end:start+TERM*DAY,status:'active',movedIn:false,autoRenew:false,shown:[]};
-  r.occ.push(k.code);S.keys.push(k);r.payHold=null;
-  if(b){b.status='filled';b.winnerKey=k.code;r.hold=null;b.entrants.filter(s=>s!==MYID()).forEach(s=>note(s,`The ballot for ${h.title} has been filled.`));}
-  note(MYID(),`Payment confirmed. Your key for ${h.title} is ready.`);
-  note(h.agentId,`Tolu Adebayo paid ${fmt(m.amount)} for ${r.name} at ${h.title}. Lodgely holds it until move-in.`);
-  note('admin',`${fmt(m.amount)} rent received for ${h.title} and held in escrow.`);
-  m.result={ref:p.ref,key:k.code};return;
- }
- if(m.kind==='renewal'){
-  const k=S.keys.find(x=>x.code===m.code);
-  p.status='released';S.payments.push(p);
-  if(sv>0)S.savings.txns.unshift({id:uid('x'),type:'applied',amt:sv,t,note:'Renewal · '+h.title});
-  k.end+=TERM*DAY;k.shown=[];k.renewals=(k.renewals||0)+1;k.notRenewing=false;cancelBallotFor(k);
-  note(MYID(),`Key for ${h.title} renewed until ${fmtDate(k.end)}.`);
-  note(h.agentId,`Tolu Adebayo renewed ${r.name} at ${h.title}. ${fmt(m.amount*(1-COMM))} paid out after commission.`);
-  m.result={ref:p.ref};
- }
+ return null;
 }
 
 /* ---------- actions ---------- */
@@ -1448,7 +1290,7 @@ const ACT={
  ldTop:()=>scrollTo(0,0),
  ldScroll:el=>{const t=document.getElementById(el.dataset.to);if(t&&t.scrollIntoView)t.scrollIntoView({block:'start'});},
  openApp:()=>enterApp('student','explore'),
- viewAgent:()=>{enterApp('agent','home');toast('You are viewing the agent side as Kunle Oladipo.');},
+ viewAgent:async()=>{if(DEMO){await B.auth.signInAs('agent');S.visitor=false;await refresh();enterApp('agent','home');toast('You are viewing the agent side as Kunle Oladipo.');return;}if(ME&&ME.role==='agent'){enterApp('agent','home');return;}ACT.agentSignup();},
  ldFind:()=>{
   const ld=S.ld;
   if(ld.school!=='oau'){S.modal={type:'waitlist',school:ld.school,contact:'',who:'student'};renderModal();return;}
@@ -1457,228 +1299,196 @@ const ACT={
   const n=filtered(visible).length;toast(n?`${n} house${n===1?'':'s'} with free rooms match your search.`:'No free rooms match yet. Try a wider budget.');
  },
  waitlist:el=>{S.modal={type:'waitlist',school:el.dataset.s,contact:'',who:'student'};renderModal();setTimeout(()=>{const i=$('#wl-c');if(i)i.focus();},60);},
- joinWaitlist:()=>{
-  const m=S.modal,i=$('#wl-c'),c=((i?i.value:m.contact)||'').trim();
-  if(!(/^\S+@\S+\.\S+$/.test(c)||/^\+?\d[\d\s]{9,16}$/.test(c))){m.contact=c;m.err='Enter an email address or a phone number like 0803 123 4567.';renderModal();return;}
-  const s=SCHOOLS.find(x=>x.id===m.school);
-  S.waitlist.push({school:m.school,contact:c,who:m.who,t:now()});note('admin',`New ${m.who} on the ${s.code} waitlist.`);
-  closeAll();toast(`You're on the ${s.code} waitlist. We'll message you when Lodgely opens there.`);
+ joinWaitlist:async()=>{
+  const m=S.modal,i=$('#wl-c'),c=((i?i.value:m.contact)||'').trim();m.contact=c;
+  if(!(EMAIL_RE.test(c)||PHONE_RE.test(c))){m.err='Enter an email address or a phone number like 0803 123 4567.';renderModal();return;}
+  const s=SCHOOLS.find(x=>x.id===m.school),school=m.school;
+  const r=await run('join_waitlist',{school,contact:c,who:m.who},{errTo:true});if(!r)return;
+  if(!S.myWait.some(w=>w.school===school))S.myWait.push({school,t:now()});if(!(ME&&ME.role==='admin'))S.waitlist=S.myWait;save();render();
+  toast(`You're on the ${s.code} waitlist. We'll message you when Lodgely opens there.`);
  },
  waitlistOau:()=>enterApp('student','explore'),
  agentSignup:()=>{S.modal={type:'agentSignup',stage:'form',name:'',biz:'',phone:'',email:'',btype:'Individual caretaker',rel:'Caretaker'};renderModal();},
- submitAgentSignup:()=>{
+ submitAgentSignup:async()=>{
   const m=S.modal;['name','biz','phone','email'].forEach(k=>{const i=$('#as-'+k);if(i)m[k]=i.value.trim();});
   const pw=($('#as-pw')||{}).value||'';
   if(!m.name||!m.biz||!PHONE_RE.test(m.phone)||!EMAIL_RE.test(m.email)){m.err='Add your name, business name, a phone number like 0803 123 4567 and an email address.';renderModal();return;}
   if(pw.length<8){m.err='Use a password with at least 8 characters.';renderModal();return;}
-  m.stage='code';m.code=genCode();m.err='';renderModal();setTimeout(()=>{const i=$('#as-otp');if(i)i.focus();},60);
+  if(busy)return;busy=true;
+  try{const r=await B.auth.signUp({role:'agent',name:m.name,biz:m.biz,phone:m.phone,email:m.email,btype:m.btype,rel:m.rel,school:'oau',password:pw});m.code=r.demoCode;m.stage='code';m.err='';}
+  catch(e){m.err=e.message;}finally{busy=false;}
+  renderModal();setTimeout(()=>{const i=$('#as-otp');if(i)i.focus();},60);
  },
- verifyAgentCode:()=>{const m=S.modal,v=(($('#as-otp')||{}).value||'').trim();if(v!==m.code){m.err='That code is not right. Check the SMS or send a new code.';renderModal();return;}m.stage='docs';m.err='';m.idType=m.idType||ID_TYPES[0];m.proofType=m.proofType||PROOF_TYPES[0];renderModal();},
- resendAgentCode:()=>{S.modal.code=genCode();S.modal.err='';renderModal();toast('New code sent.');},
- submitAgentDocs:()=>{
+ verifyAgentCode:async()=>{const m=S.modal,v=(($('#as-otp')||{}).value||'').trim();
+  try{await B.auth.verify({code:v,email:m.email});await refresh();}catch(e){m.err=e.message;renderModal();return;}
+  m.stage='docs';m.err='';m.idType=m.idType||ID_TYPES[0];m.proofType=m.proofType||PROOF_TYPES[0];renderModal();},
+ resendAgentCode:async()=>{try{const r=await B.auth.resend({email:S.modal.email});S.modal.code=r.demoCode;S.modal.err='';renderModal();toast('New code sent.');}catch(e){toast(e.message);}},
+ submitAgentDocs:async()=>{
   const m=S.modal;if(!m.idFile||!m.proofFile){m.err=!m.idFile?'Upload your ID document.':'Upload proof that you can let the property.';renderModal();return;}
-  if(m.resubmitId){
-   const a=agent(m.resubmitId),pre=ID_TYPES.concat(PROOF_TYPES);
-   a.docs=(a.docs||[]).filter(x=>!pre.some(t=>x.startsWith(t+':'))).concat([`${m.idType}: ${m.idFile}`,`${m.proofType}: ${m.proofFile}`]);
-   a.status='pending';a.rejectReason='';note('admin',`${a.name} sent new verification documents.`);
-   closeAll();toast('New documents sent. Admin checks them within 12 to 24 hours.');return;
-  }
-  const id='a'+(Object.keys(S.agents).length+1);
-  S.agents[id]={id,name:m.name,biz:m.biz,phone:m.phone,status:'pending',since:new Date(now()).toLocaleDateString('en-GB',{month:'short',year:'numeric'}),resp:'not rated yet',rating:0,ratings:0,trust:0,inspDone:0,disputes:0,bio:'',payout:'Not added',
-   docs:[`Business type: ${m.btype}`,`Relationship to the property: ${m.rel}`,`Phone ${m.phone} confirmed by code`,`Email ${m.email}`,`${m.idType}: ${m.idFile}`,`${m.proofType}: ${m.proofFile}`]};
-  note('admin',`${m.name} applied to list houses on Lodgely.`);m.newId=id;m.stage='done';m.err='';save();renderModal();
+  if(busy)return;m.err='';m.sending=true;renderModal();
+  let files=[];
+  try{files=await Promise.all([['id',m.idFile],['proof',m.proofFile]].map(([k,n])=>FILES[k]?B.upload(FILES[k],{kind:'doc'}):Promise.resolve(n)));}
+  catch(e){m.sending=false;m.err=e.message;renderModal();return;}
+  m.sending=false;
+  const r=await run('submit_agent_docs',{idType:m.idType,idFile:m.idFile,proofType:m.proofType,proofFile:m.proofFile,btype:m.btype,rel:m.rel,files},{errTo:true,close:!!m.resubmitId,ok:m.resubmitId?'New documents sent. Admin checks them within 12 to 24 hours.':null});
+  if(!r)return;FILES.id=FILES.proof=null;
+  if(!m.resubmitId){m.newId=MYID();m.stage='done';m.err='';S.modal=m;renderModal();}
  },
- agentSignupContinue:()=>{enterApp('agent','home');toast('Demo: you continue as Kunle Oladipo. Your application is waiting in Admin, Users.');},
+ agentSignupContinue:async()=>{if(DEMO){await B.auth.signInAs('agent');await refresh();enterApp('agent','home');toast('Demo: you continue as Kunle Oladipo. Your application is waiting in Admin, Users.');return;}enterApp('agent','home');},
  slowToggle:()=>{S.slow=!S.slow;save();renderModal();toast(S.slow?'Slow connection on. Pages show loading placeholders for 2 seconds.':'Slow connection off.');},
  tourNext:()=>{if(!tourState)return;if(tourState.i>=TOUR.length-1){tourEnd(true);return;}tourState.i++;showStep();},
  tourBack:()=>{if(tourState&&tourState.i>0){tourState.i--;showStep();}},
  tourSkip:()=>tourEnd(false),
  tourReplay:()=>{try{localStorage.removeItem('lodgely-tour');}catch(e){}window.__lodgelyTour=false;enterApp('student','explore');},
- role:el=>{S.role=el.dataset.r;S.modal=null;navTo();save();render();renderModal();scrollTo(0,0);},
+ role:async el=>{const r=el.dataset.r;if(!DEMO)return;S.modal=null;
+  try{if(r==='student'){if(S.visitor){if(ME)await B.auth.signOut();}else if(!ME||ME.role!=='student')await B.auth.signInAs('student');}else if(!ME||ME.role!==r||(r==='agent'&&ME.id!==B.people.agent))await B.auth.signInAs(r);await refresh();}catch(e){toast(e.message);}
+  S.role=r;navTo();save();render();renderModal();scrollTo(0,0);},
  tab:el=>{const n=nav();n.tab=el.dataset.t;n.stack=[];if(S.modal){S.modal=null;renderModal();}navTo();save();render();scrollTo(0,0);},
  push:el=>{
-  if(S.screen==='landing'){S.screen='app';S.role='student';S.nav.student.tab='explore';S.nav.student.stack=[];}
+  if(S.screen==='landing'){S.screen='app';S.role=ME?ME.role:'student';S.nav[S.role].tab=S.nav[S.role].tab||'explore';S.nav[S.role].stack=[];}
   const v={v:el.dataset.v};if(el.dataset.id)v.id=el.dataset.id;if(el.dataset.code)v.code=el.dataset.code;if(el.dataset.ro)v.ro=true;
   if(v.v==='newlisting')S.draft=newDraft();
-  if(v.v==='thread'&&!v.ro){const t=S.threads.find(x=>x.id===v.id);const me=S.role==='agent'?'a':'s';if(t)t.msgs.forEach(m=>{if(m.from!==me)m.read=true;});}
+  if(v.v==='thread'&&!v.ro){const t=S.threads.find(x=>x.id===v.id);const me=S.role==='agent'?'a':'s';if(t&&t.msgs.some(m=>m.from!==me&&!m.read)){t.msgs.forEach(m=>{if(m.from!==me)m.read=true;});B.call('mark_thread_read',{id:t.id}).catch(()=>{});}}
   if(S.modal){S.modal=null;renderModal();}
   go(v);
  },
  back:()=>{nav().stack.pop();navTo();save();render();scrollTo(0,0);},
- fav:el=>{const id=el.dataset.id;S.favs=S.favs.includes(id)?S.favs.filter(x=>x!==id):[...S.favs,id];save();render();toast(S.favs.includes(id)?'Saved to favourites.':'Removed from favourites.');},
+ fav:el=>run('toggle_fav',{houseId:el.dataset.id},{close:false,ok:r=>r.saved?'Saved to favourites.':'Removed from favourites.'}),
  am:el=>{const a=el.dataset.a;S.f.am=S.f.am.includes(a)?S.f.am.filter(x=>x!==a):[...S.f.am,a];save();render();},
  view:el=>{S.f.view=el.dataset.view;save();render();},
  clearf:()=>{Object.assign(S.f,{q:'',area:'All',max:'Any',type:'Any',am:[]});save();render();},
  boardF:el=>{S.boardFilter=el.dataset.f;render();},
  payF:el=>{S.payFilter=el.dataset.f;render();},
  compF:el=>{S.compFilter=el.dataset.f;render();},
- message:el=>{
-  const h=house(el.dataset.h);let t=S.threads.find(x=>x.houseId===h.id&&x.studentId===MYID());
-  if(!t){t={id:uid('t'),houseId:h.id,studentId:MYID(),agentId:h.agentId,msgs:[]};S.threads.push(t);}
-  t.msgs.forEach(m=>{if(m.from==='a')m.read=true;});go({v:'thread',id:t.id});setTimeout(()=>{const i=$('#msg-in');if(i)i.focus();},60);
+ message:async el=>{
+  const r=await run('open_thread',{houseId:el.dataset.h},{close:false});if(!r)return;
+  go({v:'thread',id:r.id});setTimeout(()=>{const i=$('#msg-in');if(i)i.focus();},60);
  },
- send:el=>{
-  const t=S.threads.find(x=>x.id===el.dataset.id),inp=$('#msg-in'),text=(inp&&inp.value||'').trim();if(!t||!text)return;
-  const from=S.role==='agent'?'a':'s',flag=SCAM.test(text);
-  t.msgs.push({from,text,t:now(),read:false,flag});
-  if(from==='s'){note(t.agentId,`New message from Tolu Adebayo about ${house(t.houseId).title}.`);setTimeout(()=>autoReply(t.id,text),1400);}
-  else note(t.studentId,`${agent(t.agentId).name} replied about ${house(t.houseId).title}.`);
-  if(flag)note('admin',`Chat about ${house(t.houseId).title} flagged for a possible off-app payment request.`);
-  save();render();scrollTo(0,document.body.scrollHeight);const i=$('#msg-in');if(i)i.focus();
+ send:async el=>{
+  const id=el.dataset.id,inp=$('#msg-in'),text=(inp&&inp.value||'').trim();if(!text)return;
+  if(inp)inp.value='';
+  const r=await run('send_message',{id,text},{close:false});
+  if(!r){const i=$('#msg-in');if(i)i.value=text;return;}
+  if(r.flag)toast('Never pay outside Lodgely. This message was flagged for the safety team.');
+  scrollTo(0,document.body.scrollHeight);const i=$('#msg-in');if(i)i.focus();
+  if(S.role==='student'&&DEMO)setTimeout(()=>autoReply(id,text),1400);
  },
  report:el=>{S.modal={type:'report',id:el.dataset.id};renderModal();},
- reportYes:el=>{const t=S.threads.find(x=>x.id===S.modal.id);if(t){t.reported=true;t.reportReason=S.modal.reason||REPORT_REASONS[0];t.reportedBy=S.role==='agent'?'agent':'student';t.reportedAt=now();t.reportStatus='open';if(el.dataset.block){t.blocked=true;t.blockedBy=t.reportedBy;}}note('admin',`A chat about ${t?house(t.houseId).title:'a listing'} was reported.`);closeAll();toast(el.dataset.block?'Reported and blocked.':'Reported. The safety team will review this chat.');},
+ reportYes:el=>run('report_thread',{id:S.modal.id,reason:S.modal.reason||REPORT_REASONS[0],block:!!el.dataset.block},{ok:el.dataset.block?'Reported and blocked.':'Reported. The safety team will review this chat.'}),
  book:el=>{
   if(el.dataset.resched){const i=S.inspections.find(x=>x.id===el.dataset.resched),w=visitWhen(i);if(i.moves>0){toast('You can move a visit once. Cancel it instead if the new time doesn\'t work.');return;}if(!w.free){toast('Visits can\'t be moved within 12 hours. You can still cancel.');return;}}
   S.modal={type:'book',h:el.dataset.h,resched:el.dataset.resched||null,slot:null};renderModal();
  },
  bookNext:()=>{
   const m=S.modal;if(!m.slot){m.err='Pick a time slot.';renderModal();return;}
-  if(m.resched){const i=S.inspections.find(x=>x.id===m.resched);i.slot=+m.slot;i.moves=(i.moves||0)+1;i.r24=false;i.r1=false;note(house(i.houseId).agentId,`Tolu Adebayo moved their visit at ${house(i.houseId).title} to ${fmtSlot(i.slot)}.`);closeAll();toast('Visit moved to '+fmtSlot(i.slot)+'.');return;}
-  S.modal={type:'checkout',kind:'inspection',houseId:m.h,amount:FEE,slot:+m.slot,method:'momo',wallet:'OPay',phone:'0812 345 6789',useSav:false,stage:'form'};renderModal();
+  if(m.resched){run('reschedule_visit',{id:m.resched,slot:+m.slot},{errTo:true,ok:r=>'Visit moved to '+fmtSlot(r.slot)+'.'});return;}
+  S.modal={type:'checkout',kind:'inspection',houseId:m.h,amount:FEE,slot:+m.slot,method:'momo',wallet:'OPay',phone:(ME&&ME.phone)||'',useSav:false,stage:'form'};renderModal();
  },
- rent:el=>{const h=house(el.dataset.h),r=room(h,el.dataset.r);if(!holdActive(r)||r.payHold.by!==MYID())r.payHold={by:MYID(),until:now()+HOLD_MS};save();render();S.modal={type:'checkout',kind:'rent',houseId:h.id,roomId:r.id,holdUntil:r.payHold.until,amount:r.price,method:'bank',wallet:'OPay',phone:'0812 345 6789',useSav:savBal()>0,stage:'form'};renderModal();},
- joinBallot:el=>{const b=S.ballots.find(x=>x.id===el.dataset.id);if(!b||b.status!=='open')return;const h=house(b.houseId);if(!inspDone(h.id)){toast('Inspect the house first. Only students who inspected can enter.');return;}if(!b.entrants.includes(MYID()))b.entrants.push(MYID());note(h.agentId,`Tolu Adebayo joined the ballot for ${room(h,b.roomId).name} at ${h.title}.`);save();render();toast(`You're in. The draw is on ${fmtDate(b.drawAt)}.`);},
- leaveBallot:el=>{const b=S.ballots.find(x=>x.id===el.dataset.id);if(!b||b.status!=='open')return;b.entrants=b.entrants.filter(s=>s!==MYID());save();render();toast('You left the ballot.');},
- rentBallot:el=>{const b=S.ballots.find(x=>x.id===el.dataset.id);if(!b)return;const h=house(b.houseId),r=room(h,b.roomId);S.modal={type:'checkout',kind:'rent',houseId:h.id,roomId:r.id,ballotId:b.id,amount:r.price,method:'bank',wallet:'OPay',phone:'0812 345 6789',useSav:savBal()>0,stage:'form'};renderModal();},
+ rent:async el=>{const h=house(el.dataset.h),r=room(h,el.dataset.r);
+  const res=await run('hold_room',{roomId:r.id},{close:false});if(!res)return;
+  S.modal={type:'checkout',kind:'rent',houseId:h.id,roomId:r.id,holdUntil:res.until,amount:r.price,method:'bank',wallet:'OPay',phone:(ME&&ME.phone)||'',useSav:savBal()>0,stage:'form'};renderModal();},
+ joinBallot:el=>{const b=S.ballots.find(x=>x.id===el.dataset.id);if(!b||b.status!=='open')return;if(!inspDone(b.houseId)){toast('Inspect the house first. Only students who inspected can enter.');return;}
+  run('join_ballot',{id:b.id},{close:false,ok:r=>`You're in. The draw is on ${fmtDate(r.drawAt)}.`});},
+ leaveBallot:el=>run('leave_ballot',{id:el.dataset.id},{close:false,ok:'You left the ballot.'}),
+ rentBallot:el=>{const b=S.ballots.find(x=>x.id===el.dataset.id);if(!b)return;const h=house(b.houseId),r=room(h,b.roomId);S.modal={type:'checkout',kind:'rent',houseId:h.id,roomId:r.id,ballotId:b.id,amount:r.price,method:'bank',wallet:'OPay',phone:(ME&&ME.phone)||'',useSav:savBal()>0,stage:'form'};renderModal();},
  notRenewing:el=>{S.modal={type:'confirm',title:'Not renewing this room?',text:'The ballot for your room will be drawn in 2 days, and the winner moves in after your stay ends. You can still renew until the draw.',ok:"I'm not renewing",act:'notRenewingYes',code:el.dataset.code};renderModal();},
- notRenewingYes:()=>{const k=S.keys.find(x=>x.code===S.modal.code);k.notRenewing=true;const b=S.ballots.find(x=>x.keyCode===k.code&&x.status==='open')||openBallot(k,k.end);b.drawAt=Math.min(k.end,now()+2*DAY);const h=house(k.houseId);note(h.agentId,`${stu(k.studentId).name} is not renewing ${room(h,k.roomId).name} at ${h.title}. The ballot draw is on ${fmtDate(b.drawAt)}.`);closeAll();toast('Noted. The ballot draw is on '+fmtDate(b.drawAt)+'.');},
- runDraws:()=>{let n=0;S.ballots.filter(b=>b.status==='open').forEach(b=>{drawBallot(b);n++;});closeAll();toast(n?`Ran ${n} ballot draw${n>1?'s':''}. Check your notifications.`:'No ballots are open.');},
- runDraw:el=>{const b=S.ballots.find(x=>x.id===el.dataset.id);if(b&&b.status==='open')drawBallot(b);save();render();toast('Ballot drawn.');},
- passBallot:el=>{const b=S.ballots.find(x=>x.id===el.dataset.id);if(b&&b.status==='drawn')advanceBallot(b);save();render();toast(b&&b.status==='drawn'?'Offer passed to '+stu(b.order[b.offerIdx]).name+'.':'Nobody left in line. The room is open to everyone.');},
+ notRenewingYes:()=>run('not_renewing',{code:S.modal.code},{ok:r=>'Noted. The ballot draw is on '+fmtDate(r.drawAt)+'.'}),
+ runDraws:()=>run('run_draw',{},{ok:r=>r.drawn?`Ran ${r.drawn} ballot draw${r.drawn>1?'s':''}. Check your notifications.`:'No ballots are open.'}),
+ runDraw:el=>run('run_draw',{id:el.dataset.id},{close:false,ok:'Ballot drawn.'}),
+ passBallot:el=>run('pass_offer',{id:el.dataset.id},{close:false,ok:r=>r.status==='drawn'?'Offer passed to '+r.to+'.':'Nobody left in line. The room is open to everyone.'}),
  renew:el=>{const k=S.keys.find(x=>x.code===el.dataset.code);const h=house(k.houseId),r=room(h,k.roomId);
-  if(S.ballots.some(x=>x.keyCode===k.code&&(x.status==='drawn'||x.status==='filled'))){toast('Renewal closed when the ballot for this room was drawn.');return;}S.modal={type:'checkout',kind:'renewal',code:k.code,houseId:h.id,roomId:r.id,amount:r.price,method:'momo',wallet:'OPay',phone:'0812 345 6789',useSav:savBal()>0,stage:'form'};renderModal();},
- pay:()=>{const m=S.modal;m.stage='processing';renderModal();setTimeout(()=>{if(S.modal!==m)return;finalizePay(m);m.stage='done';save();render();renderModal();},1500);},
+  if(S.ballots.some(x=>x.keyCode===k.code&&(x.status==='drawn'||x.status==='filled'))){toast('Renewal closed when the ballot for this room was drawn.');return;}S.modal={type:'checkout',kind:'renewal',code:k.code,houseId:h.id,roomId:r.id,amount:r.price,method:'momo',wallet:'OPay',phone:(ME&&ME.phone)||'',useSav:savBal()>0,stage:'form'};renderModal();},
+ pay:()=>{const m=S.modal;if(!m||m.stage==='processing'||m.stage==='provider')return;startPay(m);},
+ payCheck:()=>{const m=S.modal;if(m&&m.stage==='provider'){m.check=true;toast('Checking with the bank...');}},
+ payCancel:async()=>{const m=S.modal;if(!m)return;try{await B.call('cancel_checkout',{ref:m.ref});}catch(e){}closeExternal();m.stage='form';m.err='Payment cancelled. You have not been charged.';renderModal();refresh().then(bgRender).catch(()=>{});},
  doneCheckout:()=>{const m=S.modal;S.modal=null;renderModal();if(m&&m.result&&m.result.key){S.nav.student.tab='lodge';S.nav.student.stack=[{v:'key',code:m.result.key}];}save();render();scrollTo(0,0);},
- closeModal:()=>{if(S.modal&&S.modal.stage==='processing')return;const held=S.modal&&S.modal.type==='checkout'&&S.modal.kind==='rent'&&S.modal.stage==='form'&&S.modal.holdUntil;S.modal=null;save();renderModal();if(held){render();toast('The room stays held for you until the timer runs out. Tap Continue payment to finish.');}},
+ closeModal:()=>{if(S.modal&&(S.modal.stage==='processing'||S.modal.stage==='provider'||S.modal.sending))return;const held=S.modal&&S.modal.type==='checkout'&&S.modal.kind==='rent'&&S.modal.stage==='form'&&S.modal.holdUntil;S.modal=null;save();renderModal();if(held){render();toast('The room stays held for you until the timer runs out. Tap Continue payment to finish.');}},
  later:()=>{S.modal=null;save();renderModal();},
  needInsp:()=>toast('Book and complete an inspection first. Rent unlocks after the visit.'),
  enterCode:el=>{S.modal={type:'code',id:el.dataset.id,val:''};renderModal();setTimeout(()=>{const i=$('#code-in');if(i)i.focus();},60);},
  checkCode:()=>{
-  const m=S.modal,i=S.inspections.find(x=>x.id===m.id),inp=$('#code-in');const v=(inp?inp.value:m.val||'').trim();
-  if(v===i.code){i.status='completed';i.doneAt=now();visitDone(i);const h=house(i.houseId);note(MYID(),`Visit at ${h.title} confirmed. Rent payment is unlocked.`);note(h.agentId,`Tolu Adebayo confirmed the visit at ${h.title}.`);closeAll();toast('Visit confirmed. Rent payment is unlocked.');}
-  else{m.val=v;m.err='That code does not match. Ask the agent to show the code on their Lodgely app.';renderModal();}
+  const m=S.modal,inp=$('#code-in');const v=(inp?inp.value:m.val||'').trim();m.val=v;
+  run('confirm_visit',{id:m.id,code:v},{errTo:true,ok:'Visit confirmed. Rent payment is unlocked.'});
  },
- rate:el=>{
-  const i=S.inspections.find(x=>x.id===el.dataset.id),a=agent(house(i.houseId).agentId),n=+el.dataset.n,prev=i.rating||0;
-  if(prev)a.rating=(a.rating*a.ratings-prev+n)/a.ratings;else{a.rating=(a.rating*a.ratings+n)/(a.ratings+1);a.ratings++;}
-  i.rating=n;updateTrust(a);save();render();
-  toast(`Thanks. ${a.name.split(' ')[0]} is now rated ${a.rating.toFixed(1)} from ${a.ratings} visits, with a trust score of ${a.trust}.`);
- },
+ rate:el=>run('rate_visit',{id:el.dataset.id,n:+el.dataset.n},{close:false,ok:r=>`Thanks. ${r.name} is now rated ${(+r.rating).toFixed(1)} from ${r.ratings} visits, with a trust score of ${r.trust}.`}),
  mismatch:el=>{S.modal={type:'mismatch',id:el.dataset.id,text:''};renderModal();},
- sendMismatch:()=>{const m=S.modal;if(!(m.text||'').trim()){m.err='Describe what was different.';renderModal();return;}const i=S.inspections.find(x=>x.id===m.id),h=house(i.houseId);i.mismatch=true;{const a=agent(h.agentId);a.mismatches=(a.mismatches||0)+1;updateTrust(a);}S.complaints.unshift({id:uid('c'),kind:'mismatch',authorId:MYID(),authorName:'Tolu Adebayo',authorRole:'tenant',about:'house',houseId:h.id,agentId:h.agentId,text:m.text.trim(),status:'review',reply:'',t:now()});note('admin',`Listing mismatch reported for ${h.title}.`);closeAll();toast('Report sent to admin.');},
+ sendMismatch:()=>{const m=S.modal;if(!(m.text||'').trim()){m.err='Describe what was different.';renderModal();return;}run('report_mismatch',{id:m.id,text:m.text},{errTo:true,ok:'Report sent to admin.'});},
  moveIn:el=>{S.modal={type:'confirm',title:'Confirm you have moved in?',text:'Lodgely will release your rent to the agent. Confirm only once you have the room and it matches the listing.',ok:'Yes, I have moved in',act:'moveInYes',code:el.dataset.code};renderModal();},
- moveInYes:()=>{const k=S.keys.find(x=>x.code===S.modal.code);releaseKey(k,'Move-in confirmed by the tenant');k.movedIn=true;closeAll();toast('Move-in confirmed. Rent released to the agent.');},
- autoRenew:el=>{const k=S.keys.find(x=>x.code===el.dataset.code);k.autoRenew=!k.autoRenew;save();render();if(S.modal)renderModal();toast(k.autoRenew?'Auto-renew from savings is on.':'Auto-renew is off.');},
+ moveInYes:()=>run('confirm_move_in',{code:S.modal.code},{ok:'Move-in confirmed. Rent released to the agent.'}),
+ autoRenew:el=>run('toggle_auto_renew',{code:el.dataset.code},{close:false,ok:r=>r.on?'Auto-renew from savings is on.':'Auto-renew is off.'}),
  dispute:el=>{S.modal={type:'dispute',code:el.dataset.code,reason:'Money or refund',text:''};renderModal();},
  sendDispute:()=>{
   const m=S.modal;if(!(m.text||'').trim()){m.err='Describe what went wrong.';renderModal();return;}
-  const k=S.keys.find(x=>x.code===m.code),h=house(k.houseId);
-  S.complaints.unshift({id:uid('c'),kind:'dispute',authorId:MYID(),authorName:'Tolu Adebayo',authorRole:'tenant',about:'house',houseId:h.id,agentId:h.agentId,reason:m.reason,payId:k.payId,text:m.text.trim(),status:'open',reply:'',t:now()});
-  note('admin',`New dispute from Tolu Adebayo about ${h.title}: ${m.reason}.`);note(h.agentId,`Tolu Adebayo raised a dispute about ${h.title}. Lodgely will review the chat and payment.`);
-  closeAll();toast('Dispute sent. Admin can see your chat and payment record.');
+  run('raise_dispute',{code:m.code,reason:m.reason,text:m.text},{errTo:true,ok:'Dispute sent. Admin can see your chat and payment record.'});
  },
  lodgeComplaint:el=>{const h=house(el.dataset.id);S.modal={type:'complaint',houseId:h.id,can:myKeys().some(k=>k.houseId===h.id),about:'house',text:''};renderModal();},
- sendComplaint:()=>{const m=S.modal;if(!(m.text||'').trim()){m.err='Write what happened before posting.';renderModal();return;}const h=house(m.houseId);S.complaints.unshift({id:uid('c'),kind:'public',authorId:MYID(),authorName:'Tolu A.',authorRole:'tenant',about:m.about,houseId:h.id,agentId:h.agentId,text:m.text.trim(),status:'open',reply:'',t:now()});note(h.agentId,`Tolu A. posted a complaint about ${m.about==='agent'?'you':h.title}. You can reply from Account.`);note('admin',`New public complaint about ${h.title}.`);closeAll();toast('Complaint posted.');},
+ sendComplaint:()=>{const m=S.modal;if(!(m.text||'').trim()){m.err='Write what happened before posting.';renderModal();return;}run('post_complaint',{houseId:m.houseId,about:m.about,text:m.text},{errTo:true,ok:'Complaint posted.'});},
  tcomplaint:()=>{S.modal={type:'tcomplaint',code:'',text:''};renderModal();},
- sendTComplaint:()=>{const m=S.modal;const k=S.keys.find(x=>x.code===m.code);if(!k||!(m.text||'').trim()){m.err='Choose a tenant and write what happened.';renderModal();return;}const h=house(k.houseId);S.complaints.unshift({id:uid('c'),kind:'public',authorId:MYID(),authorName:'Kunle O.',authorRole:'owner',about:'tenant',houseId:h.id,agentId:MYID(),tenantId:k.studentId,tenantName:stu(k.studentId).name,text:m.text.trim(),status:'open',reply:'',t:now()});note('admin',`New complaint about tenant ${stu(k.studentId).name}.`);note(k.studentId,`${agent(MYID()).name} posted a public complaint about you. You can reply from My lodge.`);closeAll();toast('Complaint posted. The tenant can reply.');},
+ sendTComplaint:()=>{const m=S.modal;if(!m.code||!(m.text||'').trim()){m.err='Choose a tenant and write what happened.';renderModal();return;}run('post_tenant_complaint',{code:m.code,text:m.text},{errTo:true,ok:'Complaint posted. The tenant can reply.'});},
  reply:el=>{S.modal={type:'reply',id:el.dataset.id,text:''};renderModal();},
- sendReply:()=>{const m=S.modal;if(!(m.text||'').trim()){m.err='Write a reply first.';renderModal();return;}const c=S.complaints.find(x=>x.id===m.id);c.reply=m.text.trim();c.replyBy=S.role==='student'?stu(MYID()).name:agent(MYID()).name;if(S.role==='student')note(c.agentId,`${stu(MYID()).name} replied to your complaint about them.`);closeAll();toast('Reply posted.');},
+ sendReply:()=>{const m=S.modal;if(!(m.text||'').trim()){m.err='Write a reply first.';renderModal();return;}run('reply_complaint',{id:m.id,text:m.text},{errTo:true,ok:'Reply posted.'});},
  goal:()=>{const g=S.savings.goal;S.modal=Object.assign({type:'goal'},g,{target:String(g.target),schedAmt:String(g.schedAmt)});renderModal();},
  goalHouse:el=>{const h=house(el.dataset.id);S.modal.target=String(minPrice(h));S.modal.name='Rent for '+h.title;renderModal();},
  saveGoal:()=>{
-  const m=S.modal,g0=S.savings.goal;const tg=+String(m.target).replace(/[^\d]/g,'');
-  if(!(tg>0)||!m.due||!m.name.trim()){m.err='Add a name, a target and a due date.';renderModal();return;}
-  const due0=new Date(g0.due+'T00:00').getTime(),lk=g0.mode==='locked'&&now()<due0;
-  if(lk&&m.mode!=='locked'){m.err=`Your savings are locked until ${fmtDate(due0)}. You can switch to flexible after that date.`;renderModal();return;}
-  if(lk&&new Date(m.due+'T00:00').getTime()<due0){m.err=`While your savings are locked, the due date can move later than ${fmtDate(due0)}, not earlier.`;renderModal();return;}
-  const amt=+String(m.schedAmt).replace(/[^\d]/g,'')||0,step=(m.sched==='weekly'?7:30)*DAY;
-  const nextAuto=m.sched==='none'||!amt?null:(m.sched!==g0.sched||!g0.nextAuto?now()+step:g0.nextAuto);
-  S.savings.goal={name:m.name.trim(),target:tg,due:m.due,mode:m.mode,sched:m.sched,schedAmt:amt,nextAuto};
-  closeAll();toast('Savings goal updated.');
+  const m=S.modal,tg=+String(m.target).replace(/[^\d]/g,'');
+  if(!(tg>0)||!m.due||!String(m.name||'').trim()){m.err='Add a name, a target and a due date.';renderModal();return;}
+  run('save_goal',{name:m.name,target:m.target,due:m.due,mode:m.mode,sched:m.sched,schedAmt:m.schedAmt},{errTo:true,ok:'Savings goal updated.'});
  },
  deposit:()=>{S.modal={type:'deposit',amt:'20000',method:'momo',stage:'form'};renderModal();},
  depAmt:el=>{S.modal.amt=el.dataset.v;renderModal();},
- doDeposit:()=>{const m=S.modal;const a=+String(m.amt).replace(/[^\d]/g,'');if(!(a>=100)){m.err='Enter at least ₦100.';renderModal();return;}m.amt=String(a);m.stage='processing';renderModal();setTimeout(()=>{if(S.modal!==m)return;S.savings.txns.unshift({id:uid('x'),type:'deposit',amt:a,t:now(),note:m.method==='bank'?'Bank transfer':'Mobile money · OPay'});m.stage='done';save();render();renderModal();},1100);},
+ doDeposit:()=>{const m=S.modal;const a=+String(m.amt).replace(/[^\d]/g,'');if(!(a>=100)){m.err='Enter at least ₦100.';renderModal();return;}m.amt=String(a);m.kind='deposit';m.amount=a;startPay(m);},
  withdraw:()=>{S.modal={type:'withdraw',amt:''};renderModal();},
- doWithdraw:()=>{const m=S.modal;const a=+String(m.amt).replace(/[^\d]/g,'');if(!(a>0)||a>savBal()){m.err=`Enter an amount up to ${fmt(savBal())}.`;renderModal();return;}S.savings.txns.unshift({id:uid('x'),type:'withdrawal',amt:a,t:now(),note:'To mobile money · OPay'});closeAll();toast(fmt(a)+' sent to your wallet.');},
+ doWithdraw:()=>{const m=S.modal;const a=+String(m.amt).replace(/[^\d]/g,'');if(!(a>0)||a>savBal()){m.err=`Enter an amount up to ${fmt(savBal())}.`;renderModal();return;}
+  run('withdraw_savings',{amount:a,to:'To your bank or wallet'},{errTo:true,ok:r=>PAYMODE==='simulated'?fmt(r.amount)+' sent to your wallet.':`Withdrawal of ${fmt(r.amount)} requested. It reaches your account within 24 hours.`});},
  copy:el=>{const v=el.dataset.v;const fail=()=>toast('Copy is blocked here. Long-press the code to copy it.');try{navigator.clipboard.writeText(v).then(()=>toast('Key code copied.'),fail);}catch(e){fail();}},
- notes:()=>{const mine=S.notes.filter(n=>n.to===meId());const fresh=mine.filter(n=>!n.read).map(n=>n.id);mine.forEach(n=>n.read=true);S.modal={type:'notes',fresh};save();render();renderModal();},
+ notes:()=>{const mine=S.notes.filter(n=>n.to===meId());const fresh=mine.filter(n=>!n.read).map(n=>n.id);mine.forEach(n=>n.read=true);S.modal={type:'notes',fresh};render();renderModal();if(fresh.length)B.call('mark_notes_read',{}).catch(()=>{});},
  demo:()=>{S.modal={type:'demo'};renderModal();},
  jump:el=>{
   const k=activeKeys()[0];if(!k){toast('Rent a room first, then come back to fast-forward.');return;}
   const n=+el.dataset.n,target=n<0?k.end+6e4:k.end-n*DAY+6e4;
-  SHIFT=Math.max(SHIFT,target-Date.now());S.modal=null;checkKeys();save();render();renderModal();
-  if(!S.modal)toast(n<0?'Jumped past the end date.':`Jumped to ${n} day${n>1?'s':''} before the key ends.`);
+  run('demo_set_clock',{shift:Math.max(SHIFT,target-Date.now())},{ok:()=>S.modal?null:(n<0?'Jumped past the end date.':`Jumped to ${n} day${n>1?'s':''} before the key ends.`)}).then(()=>{if(S.modal)renderModal();});
  },
- today:()=>{SHIFT=0;S.modal=null;save();render();renderModal();toast('Demo clock is back to today.');},
+ today:()=>run('demo_set_clock',{shift:0},{ok:'Demo clock is back to today.'}),
  reset:()=>{S.modal={type:'confirm',title:'Reset the demo?',text:'This clears every booking, payment, message and listing you made and restores the sample data.',ok:'Reset demo',act:'resetYes',danger:true};renderModal();},
- resetYes:()=>{S=norm(seed());S.screen='app';loadedViews.clear();loadedViews.add(viewKey());save();render();renderModal();scrollTo(0,0);toast('Demo reset.');},
+ resetYes:()=>{S.modal=null;renderModal();toast('Resetting the demo...');try{localStorage.removeItem(STORE);}catch(e){}B.reset();},
  /* agent */
  cancelVisit:el=>{
   const i=S.inspections.find(x=>x.id===el.dataset.id),w=visitWhen(i);
   S.modal={type:'confirm',title:'Cancel this visit?',text:w.free?`You get the ${fmt(FEE)} fee back, and ${agent(house(i.houseId).agentId).name} is told.`:`It's less than 12 hours to your visit, so the ${fmt(FEE)} fee stays with the agent for the time they set aside.`,ok:w.free?'Cancel and get a refund':'Cancel anyway',act:'cancelVisitYes',id:i.id,danger:true};renderModal();
  },
- cancelVisitYes:()=>{
-  const i=S.inspections.find(x=>x.id===S.modal.id),w=visitWhen(i),h=house(i.houseId),p=S.payments.find(x=>x.id===i.payId);
-  i.status='stuCancelled';i.refunded=w.free;if(w.free&&p)p.status='refunded';
-  note(h.agentId,`${stu(i.studentId).name} cancelled the visit to ${h.title} on ${fmtSlot(i.slot)}.${w.free?' The fee was refunded.':' You keep the fee.'}`);
-  closeAll();toast(w.free?`Visit cancelled. ${fmt(FEE)} refunded.`:'Visit cancelled. The fee stays with the agent.');
- },
+ cancelVisitYes:()=>run('cancel_visit',{id:S.modal.id},{ok:r=>r.refunded?`Visit cancelled. ${fmt(FEE)} refunded.`:'Visit cancelled. The fee stays with the agent.'}),
  reportNoShow:el=>{S.modal={type:'confirm',title:"Report that the agent didn't show up?",text:`Lodgely refunds your ${fmt(FEE)} now and tells the agent. Agents who miss visits lose trust score and can be suspended.`,ok:'Report and get a refund',act:'noShowYes',id:el.dataset.id,danger:true};renderModal();},
- noShowYes:()=>{
-  const i=S.inspections.find(x=>x.id===S.modal.id),h=house(i.houseId),a=agent(h.agentId),p=S.payments.find(x=>x.id===i.payId);
-  i.status='noshow';if(p)p.status='refunded';a.noShows=(a.noShows||0)+1;updateTrust(a);
-  note(h.agentId,`${stu(i.studentId).name} reported that you missed the visit at ${h.title}. The fee was refunded and your trust score dropped.`);
-  note('admin',`No-show reported against ${a.name} at ${h.title}.`);
-  closeAll();toast(`Refunded ${fmt(FEE)}. ${a.name.split(' ')[0]}'s trust score is now ${a.trust}.`);
- },
+ noShowYes:()=>run('report_no_show',{id:S.modal.id},{ok:r=>`Refunded ${fmt(FEE)}. ${r.name}'s trust score is now ${r.trust}.`}),
  markMissed:el=>{S.modal={type:'confirm',title:"Mark that the student didn't come?",text:`You keep your ${fmt(FEE*(1-COMM))} from the fee. The student is told and can book again.`,ok:"Student didn't come",act:'missedYes',id:el.dataset.id};renderModal();},
- missedYes:()=>{const i=S.inspections.find(x=>x.id===S.modal.id),h=house(i.houseId);i.status='missed';note(i.studentId,`${agent(h.agentId).name} marked that you missed your visit to ${h.title}. The fee is not refunded. You can book another visit.`);closeAll();toast('Marked as missed. You keep the fee.');},
- completeInsp:el=>{const i=S.inspections.find(x=>x.id===el.dataset.id);i.status='completed';i.doneAt=now();visitDone(i);const h=house(i.houseId);note(i.studentId,`${agent(h.agentId).name} marked your visit at ${h.title} as done. Rent payment is unlocked.`);save();render();toast('Visit marked as done. The student can now pay rent.');},
+ missedYes:()=>run('mark_missed',{id:S.modal.id},{ok:'Marked as missed. You keep the fee.'}),
+ completeInsp:el=>run('agent_complete_visit',{id:el.dataset.id},{close:false,ok:'Visit marked as done. The student can now pay rent.'}),
  cancelInsp:el=>{S.modal={type:'confirm',title:'Cancel this visit?',text:`The student gets the ${fmt(FEE)} fee back, so you lose your ${fmt(FEE*(1-COMM))}, and cancellations lower your trust score.`,ok:'Cancel visit',act:'cancelInspYes',id:el.dataset.id,danger:true};renderModal();},
- cancelInspYes:()=>{const i=S.inspections.find(x=>x.id===S.modal.id);i.status='cancelled';const p=S.payments.find(x=>x.id===i.payId);if(p)p.status='refunded';const h=house(i.houseId);{const a=agent(h.agentId);a.cancels=(a.cancels||0)+1;updateTrust(a);}note(i.studentId,`${agent(h.agentId).name} cancelled your visit at ${h.title}. ${fmt(FEE)} refunded.`);closeAll();toast('Visit cancelled and fee refunded.');},
- pauseRoom:el=>{const r=room(house(el.dataset.h),el.dataset.r);r.paused=!r.paused;save();render();toast(r.paused?'Room paused. Students cannot rent it.':'Room is available again.');},
- toggleShared:el=>{
-  const h=house(el.dataset.id);h.shared=!h.shared;
-  h.rooms.forEach(r=>{if(h.shared){if((r.capSaved||1)>1)r.cap=Math.max(r.capSaved,r.occ.length);}else if(r.cap>1){r.capSaved=r.cap;r.cap=Math.max(1,r.occ.length);}});
-  save();render();toast(h.shared?'Shared rooms allowed. Use + and − on each room to set its spaces.':'Shared rooms off. Rooms with free spaces now take one tenant each.');
- },
- cap:el=>{const h=house(el.dataset.h),r=room(h,el.dataset.r);if(!h.shared)return;const n=Math.max(Math.max(1,r.occ.length),Math.min(6,r.cap+(+el.dataset.d)));if(n===r.cap){toast(r.cap>=6?'A room can have at most 6 spaces.':'You cannot go below the tenants already in this room.');return;}r.cap=n;r.capSaved=n;save();render();},
+ cancelInspYes:()=>run('agent_cancel_visit',{id:S.modal.id},{ok:'Visit cancelled and fee refunded.'}),
+ pauseRoom:el=>run('toggle_room_pause',{houseId:el.dataset.h,roomId:el.dataset.r},{close:false,ok:r=>r.paused?'Room paused. Students cannot rent it.':'Room is available again.'}),
+ toggleShared:el=>run('toggle_shared',{houseId:el.dataset.id},{close:false,ok:r=>r.shared?'Shared rooms allowed. Use + and − on each room to set its spaces.':'Shared rooms off. Rooms with free spaces now take one tenant each.'}),
+ cap:el=>{const h=house(el.dataset.h);if(!h||!h.shared)return;run('set_room_cap',{houseId:el.dataset.h,roomId:el.dataset.r,d:+el.dataset.d},{close:false});},
  draftShared:()=>{S.draft.shared=!S.draft.shared;render();},
  addRoom:()=>{S.draft.rooms.push({name:'Room '+(S.draft.rooms.length+1),price:'',cap:'1'});render();const i=$(`#nl-r${S.draft.rooms.length-1}n`);if(i)i.focus();},
  delRoom:el=>{S.draft.rooms.splice(+el.dataset.i,1);render();},
- submitListing:()=>{
+ submitListing:async()=>{
   const d=S.draft,price=r=>+String(r.price).replace(/[^\d]/g,''),rooms=d.rooms.filter(r=>String(r.name).trim()&&price(r)>0);
   if(!d.title.trim()||!d.address.trim()||!rooms.length){d.err='Add a house name, a street address and at least one room with a price.';render();return;}
-  const id=uid('h'),times=Object.keys(d.times).filter(k=>d.times[k]).sort(),days=Object.keys(d.days||{}).filter(k=>d.days[k]).map(Number);
+  const times=Object.keys(d.times).filter(k=>d.times[k]).sort(),days=Object.keys(d.days||{}).filter(k=>d.days[k]).map(Number);
   if(!times.length||!days.length){d.err='Pick at least one day and one time for inspections.';render();return;}
-  const baths=Math.max(1,Math.min(30,Math.round(+d.baths||1)));
-  const common={title:d.title.trim(),area:d.area,address:d.address.trim()+', Ile-Ife',km:+d.km||1,type:d.type,desc:d.desc.trim()||'No description yet.',amenities:Object.keys(d.am).filter(k=>d.am[k]),rules:d.rules.split('\n').map(s=>s.trim()).filter(Boolean),shared:!!d.shared,photos:d.photos||[],times,days,baths,availFrom:d.avail||null};
-  if(d.editId){
-   const h=house(d.editId),next=[];
-   d.rooms.forEach(dr=>{
-    const name=String(dr.name).trim(),p=price(dr),ex=dr.id&&h.rooms.find(r=>r.id===dr.id);
-    if(ex){ex.name=name||ex.name;if(p>0)ex.price=p;ex.cap=d.shared?Math.max(Math.max(1,ex.occ.length),Math.min(6,+dr.cap||1)):Math.max(1,ex.occ.length);ex.furnished=!!d.am.Furnished;next.push(ex);}
-    else if(name&&p>0)next.push({id:h.id+'r'+Math.random().toString(36).slice(2,7),name,price:p,cap:d.shared?Math.max(1,Math.min(6,+dr.cap||1)):1,occ:[],paused:false,furnished:!!d.am.Furnished});
-   });
-   h.rooms.forEach(r=>{if(!next.includes(r)&&(r.occ.length||r.hold||ballotsOf(r).length))next.push(r);});
-   Object.assign(h,common,{rooms:next});
-   const wasRejected=h.mod==='rejected';if(wasRejected)h.mod='pending';
-   note('admin',`${agent(MYID()).name} ${wasRejected?'resubmitted':'edited'} ${h.title}.`);
-   S.draft=null;nav().stack.pop();save();render();scrollTo(0,0);
-   toast(h.mod==='live'?'Changes saved. Students see them straight away.':wasRejected?'Sent to admin for review again.':'Changes saved.');
-   return;
-  }
-  S.houses.push({id,agentId:MYID(),...common,mod:'pending',paused:false,created:now(),
-   art:{wall:Math.floor(Math.random()*7),roof:Math.floor(Math.random()*5),kind:['bungalow','storey','flats'][Math.floor(Math.random()*3)]},
-   rooms:rooms.map((r,i)=>({id:id+'r'+(i+1),name:String(r.name).trim(),price:+String(r.price).replace(/[^\d]/g,''),cap:d.shared?Math.max(1,Math.min(6,+r.cap||1)):1,occ:[],paused:false,furnished:!!d.am.Furnished}))});
-  note('admin',`New listing awaiting review: ${d.title.trim()}.`);
-  S.draft=null;nav().stack=[];nav().tab='listings';save();render();scrollTo(0,0);toast('Sent for review. It goes live once an admin approves it.');
+  if(busy)return;
+  let photos=d.photos||[];
+  if(!DEMO&&photos.some(x=>x.startsWith('data:'))){toast('Uploading photos...');try{photos=await Promise.all(photos.map((x,i)=>x.startsWith('data:')?B.upload(dataUrlFile(x,'photo-'+(i+1)+'.jpg')):x));}catch(e){d.err=e.message;render();return;}}
+  const addr=d.address.trim(),payload={editId:d.editId||null,title:d.title.trim(),area:d.area,address:/ile-?ife/i.test(addr)?addr:addr+', Ile-Ife',km:+d.km||1,type:d.type,desc:d.desc.trim(),amenities:Object.keys(d.am).filter(k=>d.am[k]),rules:d.rules.split('\n').map(x=>x.trim()).filter(Boolean),shared:!!d.shared,furnished:!!d.am.Furnished,photos,times,days,baths:Math.max(1,Math.min(30,Math.round(+d.baths||1))),availFrom:d.avail||null,
+   rooms:d.rooms.map(r=>({id:r.id||null,name:String(r.name).trim(),price:String(r.price),cap:+r.cap||1}))};
+  const r=await run('save_listing',payload,{close:false});
+  if(!r){return;}
+  S.draft=null;
+  if(d.editId){nav().stack.pop();save();render();scrollTo(0,0);toast(r.mod==='live'?'Changes saved. Students see them straight away.':r.resubmitted?'Sent to admin for review again.':'Changes saved.');return;}
+  nav().stack=[];nav().tab='listings';save();render();scrollTo(0,0);toast('Sent for review. It goes live once an admin approves it.');
  },
  editListing:el=>{const h=house(el.dataset.id);S.draft=draftFromHouse(h);go({v:'newlisting'});if(el.dataset.focus==='times')setTimeout(()=>{const t=$('#nl-visits');if(t&&t.scrollIntoView)t.scrollIntoView({block:'center'});},60);},
  clearPhotos:()=>{S.draft.photos=[];render();},
- pauseListing:el=>{const h=house(el.dataset.id);h.paused=!h.paused;if(S.modal){S.modal=null;renderModal();}note('admin',`${agent(h.agentId).name} ${h.paused?'paused':'resumed'} ${h.title}.`);save();render();toast(h.paused?'Listing paused. Students can no longer find or book it.':'Listing is visible to students again.');},
+ pauseListing:el=>run('toggle_listing_pause',{id:el.dataset.id},{ok:r=>r.paused?'Listing paused. Students can no longer find or book it.':'Listing is visible to students again.'}),
  deleteListing:el=>{
   const h=house(el.dataset.id),busy=[];
   if(S.keys.some(k=>k.houseId===h.id&&k.status==='active'))busy.push('current or upcoming tenants');
@@ -1687,101 +1497,86 @@ const ACT={
   if(busy.length){S.modal={type:'info',title:`You can't delete ${h.title} yet`,text:`It has ${busy.join(', ').replace(/, ([^,]*)$/,' and $1')}. ${h.paused?'It is already paused, so no new students can book it.':'Pause it instead to stop new bookings. You can delete it once those finish.'}`,act:h.paused?'':'pauseListing',actLabel:'Pause listing',id:h.id};renderModal();return;}
   S.modal={type:'confirm',title:`Delete ${h.title}?`,text:'Students will no longer see it, and it disappears from their saved houses. Payment records stay in your payouts. You cannot undo this.',ok:'Delete listing',act:'deleteListingYes',id:h.id,danger:true};renderModal();
  },
- deleteListingYes:()=>{const h=house(S.modal.id);h.deleted=true;h.paused=true;h.mod='deleted';S.favs=S.favs.filter(x=>x!==h.id);note('admin',`${agent(h.agentId).name} deleted ${h.title}.`);S.modal=null;nav().stack=[];nav().tab='listings';save();render();renderModal();scrollTo(0,0);toast(`${h.title} deleted.`);},
+ deleteListingYes:async()=>{const id=S.modal.id,h=house(id),t=h?h.title:'Listing';const r=await run('delete_listing',{id},{ok:`${t} deleted.`});if(r){nav().stack=[];nav().tab='listings';save();render();scrollTo(0,0);}},
  payoutForm:()=>{S.modal={type:'payout',bank:'GTBank',acct:'',name:'',checked:'',err:''};renderModal();},
- payoutCheck:()=>{const m=S.modal,b=$('#po-bank'),v=(($('#po-acct')||{}).value||'').replace(/\D/g,'');if(b)m.bank=b.value;m.acct=v;if(v.length!==10){m.err='Enter the 10-digit account number.';m.name='';renderModal();return;}m.name=agent(MYID()).name.toUpperCase();m.checked=m.bank+'|'+v;m.err='';renderModal();},
- savePayout:()=>{const m=S.modal,b=$('#po-bank'),v=(($('#po-acct')||{}).value||m.acct).replace(/\D/g,'');if(b)m.bank=b.value;m.acct=v;if(m.checked!==m.bank+'|'+v){m.name='';m.err='The bank or account number changed. Check the account again.';renderModal();return;}const a=agent(MYID());a.payout=`${m.bank} •••• ${v.slice(-4)}`;a.payoutName=m.name;note(MYID(),`Your payout account was changed to ${a.payout}. If this wasn't you, contact Lodgely support.`);closeAll();toast('Payout account saved.');},
+ payoutCheck:async()=>{const m=S.modal,b=$('#po-bank'),v=(($('#po-acct')||{}).value||'').replace(/\D/g,'');if(b)m.bank=b.value;m.acct=v;if(v.length!==10){m.err='Enter the 10-digit account number.';m.name='';renderModal();return;}
+  try{const r=PAYMODE==='paystack'&&B.resolveAccount?await B.resolveAccount(m.bank,v,false):await B.call('check_payout',{acct:v});m.name=r.name;m.checked=m.bank+'|'+v;m.err='';}catch(e){m.name='';m.err=e.message;}renderModal();},
+ savePayout:async()=>{const m=S.modal,b=$('#po-bank'),v=(($('#po-acct')||{}).value||m.acct).replace(/\D/g,'');if(b)m.bank=b.value;m.acct=v;if(m.checked!==m.bank+'|'+v){m.name='';m.err='The bank or account number changed. Check the account again.';renderModal();return;}
+  if(PAYMODE==='paystack'&&B.resolveAccount){try{await B.resolveAccount(m.bank,v,true);await refresh();S.modal=null;render();renderModal();toast('Payout account saved.');}catch(e){m.err=e.message;renderModal();}return;}
+  run('save_payout',{bank:m.bank,acct:v},{errTo:true,ok:'Payout account saved.'});},
  payF2:el=>{S.payF2=el.dataset.f;render();},
  verifyKey:()=>{const v=($('#vk').value||'').trim().toUpperCase();S.vk=v?{q:v}:null;render();},
  fillKey:el=>{S.vk={q:el.dataset.v};render();},
  /* admin */
- approveAgent:el=>{const a=agent(el.dataset.id);a.status='verified';updateTrust(a);a.resp='new agent';a.since=new Date(now()).toLocaleDateString('en-GB',{month:'short',year:'numeric'});note(a.id,'Your account is verified.');save();render();toast(a.name+' is verified.');},
+ approveAgent:el=>run('approve_agent',{id:el.dataset.id},{close:false,ok:r=>r.name+' is verified.'}),
  jumpVisit:el=>{
   const v=S.inspections.filter(i=>i.studentId===MYID()&&i.status==='booked').sort((a,b)=>a.slot-b.slot)[0];if(!v)return;
   const target=v.slot-(+el.dataset.h)*36e5;if(target<=now()){toast('That time has already passed on the demo clock.');return;}
-  SHIFT=target-Date.now();S.modal=null;checkKeys();save();render();renderModal();toast('Clock moved. Check the bell for the reminder.');
+  run('demo_set_clock',{shift:target-Date.now()},{ok:'Clock moved. Check the bell for the reminder.'});
  },
  login:el=>{S.modal={type:'auth',step:'login',who:(el&&el.dataset&&el.dataset.w)||(S.role==='agent'?'agent':'student'),id:''};renderModal();},
  signup:()=>{S.modal={type:'auth',step:'signup',name:'',phone:'',email:'',school:'oau',dept:''};renderModal();},
  authGo:el=>{const m=S.modal&&S.modal.type==='auth'?S.modal:{type:'auth'};S.modal=Object.assign({who:'student',id:'',name:'',phone:'',email:'',school:'oau',dept:''},m,{type:'auth',step:el.dataset.s,err:''});renderModal();},
  authWho:el=>{S.modal.who=el.dataset.w;S.modal.err='';renderModal();},
- doSignup:()=>{
+ doSignup:async()=>{
   const m=S.modal;['name','phone','email','dept'].forEach(k=>{const i=$('#su-'+k);if(i)m[k]=i.value.trim();});const sc=$('#su-school');if(sc)m.school=sc.value;
   const pw=($('#su-pw')||{}).value||'',sch=SCHOOLS.find(s=>s.id===m.school);
   const err=m.name.split(/\s+/).filter(Boolean).length<2?'Enter your first and last name.':!PHONE_RE.test(m.phone)?'Enter a phone number like 0812 345 6789.':!EMAIL_RE.test(m.email)?'Enter a valid email address.':pw.length<8?'Use a password with at least 8 characters.':(sch&&!sch.live)?`Lodgely isn't open at ${sch.code} yet. Pick OAU, or join the ${sch.code} waitlist from the home page.`:'';
   if(err){m.err=err;renderModal();return;}
-  m.code=genCode();m.step='code';m.err='';renderModal();setTimeout(()=>{const i=$('#otp');if(i)i.focus();},60);
+  if(busy)return;busy=true;
+  try{const r=await B.auth.signUp({role:'student',name:m.name,phone:m.phone,email:m.email,dept:m.dept,school:m.school,password:pw});m.code=r.demoCode;m.step='code';m.err='';}
+  catch(e){m.err=e.message;}finally{busy=false;}
+  renderModal();setTimeout(()=>{const i=$('#otp');if(i)i.focus();},60);
  },
- verifyCode:()=>{const m=S.modal,v=(($('#otp')||{}).value||'').trim();if(v!==m.code){m.err='That code is not right. Check the SMS or send a new code.';renderModal();return;}m.step='done';m.err='';renderModal();},
- resendCode:()=>{S.modal.code=genCode();S.modal.err='';renderModal();toast('New code sent.');},
- authDone:()=>loginAs('student'),
- doLogin:()=>{const m=S.modal,id=(($('#li-id')||{}).value||'').trim(),pw=($('#li-pw')||{}).value||'';m.id=id;if(!id||!pw){m.err='Enter your email or phone number and your password.';renderModal();return;}if(!(EMAIL_RE.test(id)||PHONE_RE.test(id))){m.err='That doesn\'t look like an email address or phone number.';renderModal();return;}loginAs(m.who||'student');},
- demoLogin:()=>loginAs('student'),
- sendReset:()=>{const m=S.modal,id=(($('#fp-id')||{}).value||'').trim();m.id=id;if(!(EMAIL_RE.test(id)||PHONE_RE.test(id))){m.err='Enter the email address or phone number on your account.';renderModal();return;}m.code=genCode();m.step='reset';m.err='';renderModal();},
- doReset:()=>{
+ verifyCode:async()=>{const m=S.modal,v=(($('#otp')||{}).value||'').trim();try{await B.auth.verify({code:v,email:m.email});S.visitor=false;await refresh();}catch(e){m.err=e.message;renderModal();return;}m.step='done';m.err='';renderModal();},
+ resendCode:async()=>{try{const r=await B.auth.resend({email:S.modal.email});S.modal.code=r.demoCode;S.modal.err='';renderModal();toast('New code sent.');}catch(e){toast(e.message);}},
+ authDone:()=>afterLogin(),
+ doLogin:async()=>{const m=S.modal,id=(($('#li-id')||{}).value||'').trim(),pw=($('#li-pw')||{}).value||'';m.id=id;if(!id||!pw){m.err='Enter your email or phone number and your password.';renderModal();return;}if(!(EMAIL_RE.test(id)||PHONE_RE.test(id))){m.err='That doesn\'t look like an email address or phone number.';renderModal();return;}
+  if(busy)return;busy=true;try{await B.auth.signIn({id,password:pw});S.visitor=false;}catch(e){m.err=e.message;renderModal();return;}finally{busy=false;}
+  afterLogin();},
+ demoLogin:async()=>{if(!DEMO)return;await B.auth.signInAs('student');S.visitor=false;afterLogin();},
+ sendReset:async()=>{const m=S.modal,id=(($('#fp-id')||{}).value||'').trim();m.id=id;if(!(EMAIL_RE.test(id)||PHONE_RE.test(id))){m.err='Enter the email address or phone number on your account.';renderModal();return;}
+  try{const r=await B.auth.sendReset({id});m.code=r.demoCode;}catch(e){m.err=e.message;renderModal();return;}m.step='reset';m.err='';renderModal();},
+ doReset:async()=>{
   const m=S.modal,c=(($('#rs-code')||{}).value||'').trim(),p1=($('#rs-pw')||{}).value||'',p2=($('#rs-pw2')||{}).value||'';
-  const err=c!==m.code?'That code is not right.':p1.length<8?'Use a password with at least 8 characters.':p1!==p2?'The two passwords don\'t match.':'';
-  if(err){m.err=err;renderModal();return;}m.step='resetDone';m.err='';renderModal();
+  const err=!/^\d{6}$/.test(c)?'Enter the 6-digit code.':p1.length<8?'Use a password with at least 8 characters.':p1!==p2?'The two passwords don\'t match.':'';
+  if(err){m.err=err;renderModal();return;}
+  try{await B.auth.doReset({code:c,password:p1});}catch(e){m.err=e.message;renderModal();return;}
+  m.step='resetDone';m.err='';renderModal();
  },
- logout:()=>{tourEnd(false,true);LOGGED()=false;S.pendingAct=null;S.nav.student={tab:'explore',stack:[]};S.role='student';S.modal=null;save();render();renderModal();scrollTo(0,0);toast('Logged out. You can still browse houses.');},
+ logout:async()=>{tourEnd(false,true);try{await B.auth.signOut();}catch(e){}S.visitor=true;S.pendingAct=null;S.nav.student={tab:'explore',stack:[]};S.role='student';S.modal=null;try{await refresh();}catch(e){}save();render();renderModal();scrollTo(0,0);toast('Logged out. You can still browse houses.');},
  lstF:el=>{S.lstF=el.dataset.f;render();},
  usrF:el=>{S.usrF=el.dataset.f;render();},
  adminKey:()=>{const v=(($('#akq')||{}).value||'').trim().toUpperCase();S.akq=v||null;render();},
  adminKeyFill:el=>{S.akq=el.dataset.v;render();},
  takeDown:el=>{S.modal={type:'takedown',id:el.dataset.id,reason:TAKEDOWN_REASONS[0],note:''};renderModal();},
- takeDownYes:()=>{
-  const m=S.modal,h=house(m.id),t=now();m.note=(($('#td-note')||{}).value||'').trim();
-  h.mod='removed';h.removedReason=m.reason;h.removedNote=m.note;h.removedAt=t;
-  const nv=cancelVisitsFor(i=>i.houseId===h.id,`Lodgely took down ${h.title}`);
-  S.ballots.filter(b=>b.houseId===h.id&&b.status==='open').forEach(b=>{b.status='cancelled';b.entrants.forEach(s=>note(s,`The ballot at ${h.title} was cancelled because the listing was taken down.`));});
-  note(h.agentId,`Lodgely took down ${h.title}: ${m.reason}.${m.note?' '+m.note:''} Current tenants are not affected. Contact support to appeal.`);
-  closeAll();toast(`${h.title} taken down.${nv?` ${nv} booked visit${nv>1?'s':''} cancelled and refunded.`:''}`);
- },
- restoreListing:el=>{const h=house(el.dataset.id);h.mod='live';h.removedReason='';h.removedNote='';note(h.agentId,`${h.title} is live again.`);save();render();toast(`${h.title} is live again.`);},
+ takeDownYes:()=>{const m=S.modal;m.note=(($('#td-note')||{}).value||'').trim();
+  run('take_down_listing',{id:m.id,reason:m.reason,note:m.note},{ok:r=>`${r.title} taken down.${r.visits?` ${r.visits} booked visit${r.visits>1?'s':''} cancelled and refunded.`:''}`});},
+ restoreListing:el=>run('restore_listing',{id:el.dataset.id},{close:false,ok:r=>`${r.title} is live again.`}),
  suspendUser:el=>{S.modal={type:'suspend',k:el.dataset.k,id:el.dataset.id,reason:(el.dataset.k==='agent'?SUSPEND_AGENT:SUSPEND_STUDENT)[0]};renderModal();},
- suspendYes:()=>{
-  const m=S.modal,note2=(($('#su-note')||{}).value||'').trim(),why=m.reason+(note2?'. '+note2:'');
-  if(m.k==='agent'){
-   const a=agent(m.id);a.status='suspended';a.suspendReason=why;
-   const nv=cancelVisitsFor(i=>house(i.houseId).agentId===a.id,`${a.name} is no longer taking visits`);
-   note(a.id,`Your Lodgely account is suspended: ${why}. Your houses are hidden from students. Contact support to appeal.`);
-   closeAll();toast(`${a.name} suspended. Their houses are hidden.${nv?` ${nv} visit${nv>1?'s':''} refunded.`:''}`);
-  }else{
-   const s=S.students[m.id];s.suspended=true;s.suspendReason=why;
-   S.ballots.filter(b=>b.status==='open'&&b.entrants.includes(m.id)).forEach(b=>{b.entrants=b.entrants.filter(x=>x!==m.id);});
-   note(m.id,`Your Lodgely account is suspended: ${why}. You can see your key and payments, but you can't book, pay or message. Contact support to appeal.`);
-   closeAll();toast(`${s.name} suspended.`);
-  }
- },
- restoreUser:el=>{
-  if(el.dataset.k==='agent'){const a=agent(el.dataset.id);a.status='verified';a.suspendReason='';note(a.id,'Your Lodgely account is active again. Your houses are back in search.');toast(`${a.name} is active again.`);}
-  else{const s=S.students[el.dataset.id];s.suspended=false;s.suspendReason='';note(el.dataset.id,'Your Lodgely account is active again.');toast(`${s.name} is active again.`);}
-  save();render();
- },
- reviewReport:el=>{const t=S.threads.find(x=>x.id===el.dataset.id);t.reportStatus=t.reportStatus==='reviewed'?'open':'reviewed';save();render();toast(t.reportStatus==='reviewed'?'Report marked as reviewed.':'Report reopened.');},
- approveListing:el=>{const h=house(el.dataset.id);h.mod='live';h.created=now();note(h.agentId,`${h.title} is live.`);save();render();toast(h.title+(agent(h.agentId).status==='verified'?' is live.':' approved. It shows once the agent is verified.'));},
- rejectListing:el=>{const h=house(el.dataset.id);h.mod='rejected';note(h.agentId,`${h.title} was not approved.`);save();render();toast('Listing rejected.');},
- release:el=>{const p=S.payments.find(x=>x.id===el.dataset.id);const k=S.keys.find(x=>x.payId===p.id);if(k)releaseKey(k,'Released by admin');else p.status='released';save();render();toast('Released to the agent.');},
+ suspendYes:()=>{const m=S.modal,n=(($('#su-note')||{}).value||'').trim();
+  run('suspend_user',{k:m.k,id:m.id,reason:m.reason,note:n},{ok:r=>m.k==='agent'?`${r.name} suspended. Their houses are hidden.${r.visits?` ${r.visits} visit${r.visits>1?'s':''} refunded.`:''}`:`${r.name} suspended.`});},
+ restoreUser:el=>run('restore_user',{k:el.dataset.k,id:el.dataset.id},{close:false,ok:r=>`${r.name} is active again.`}),
+ reviewReport:el=>run('review_report',{id:el.dataset.id},{close:false,ok:r=>r.status==='reviewed'?'Report marked as reviewed.':'Report reopened.'}),
+ approveListing:el=>run('approve_listing',{id:el.dataset.id},{close:false,ok:r=>r.title+(r.agentVerified?' is live.':' approved. It shows once the agent is verified.')}),
+ rejectListing:el=>run('reject_listing',{id:el.dataset.id},{close:false,ok:'Listing rejected.'}),
+ release:el=>run('release_payment',{id:el.dataset.id},{close:false,ok:'Released to the agent.'}),
+ paidOut:el=>run('mark_paid_out',{id:el.dataset.id},{close:false,ok:'Marked as sent to the agent.'}),
  refund:el=>{S.modal={type:'confirm',title:'Refund this payment?',text:'The student gets the money back. For rent, the key is cancelled and the room returns to Available.',ok:'Refund',act:'refundYes',id:el.dataset.id,danger:true};renderModal();},
- refundYes:()=>{
-  const p=S.payments.find(x=>x.id===S.modal.id),h=house(p.houseId);p.status='refunded';
-  if(p.kind==='inspection'){const i=S.inspections.find(x=>x.payId===p.id);if(i&&i.status==='booked')i.status='cancelled';}
-  else{const k=S.keys.find(x=>x.payId===p.id);if(k){k.status='cancelled';const r=room(h,k.roomId);r.occ=r.occ.filter(c=>c!==k.code);}}
-  if(p.studentId===MYID()&&p.savingsUsed>0)S.savings.txns.unshift({id:uid('x'),type:'deposit',amt:p.savingsUsed,t:now(),note:'Refund returned to savings'});
-  note(p.studentId,`${fmt(p.amount)} refunded for ${h.title}.`);note(h.agentId,`Admin refunded ${stu(p.studentId).name}'s payment for ${h.title}.`);
-  closeAll();toast('Refunded.');
- },
- setStatus:el=>{const c=S.complaints.find(x=>x.id===el.dataset.id);c.status=el.dataset.s;save();render();},
- removeComplaint:el=>{const c=S.complaints.find(x=>x.id===el.dataset.id);c.removed=!c.removed;save();render();toast(c.removed?'Post removed from public view.':'Post restored.');}
+ refundYes:()=>run('refund_payment',{id:S.modal.id},{ok:PAYMODE==='paystack'?'Marked as refunded. Send the money back from your Paystack dashboard.':'Refunded.'}),
+ setStatus:el=>run('set_complaint_status',{id:el.dataset.id,status:el.dataset.s,upheld:el.dataset.s==='resolved'&&!!el.dataset.upheld},{close:false}),
+ removeComplaint:el=>run('toggle_complaint_removed',{id:el.dataset.id},{close:false,ok:r=>r.removed?'Post removed from public view.':'Post restored.'})
 };
 
 /* ---------- events ---------- */
+const FILES={id:null,proof:null};
+function dataUrlFile(u,name){const [h,b]=u.split(',');const mime=(h.match(/data:([^;]+)/)||[])[1]||'image/jpeg';const bin=atob(b);const a=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return new File([a],name,{type:mime});}
 document.addEventListener('click',e=>{
  if(themeOpen&&!e.target.closest('.theme-wrap')){themeOpen=false;syncTheme();}
  const el=e.target.closest('[data-act]');if(!el)return;
  const f=ACT[el.dataset.act];if(!f)return;
- if(GATED[el.dataset.act]&&el.dataset.act!=='fav'&&S.role==='student'&&LOGGED()&&S.students[MYID()].suspended){
-  e.preventDefault();e.stopPropagation();S.modal={type:'info',title:'Your account is suspended',text:`You can't ${GATED[el.dataset.act]} while your account is suspended. Reason: ${S.students[MYID()].suspendReason||'not given'}. Contact Lodgely support to appeal.`};renderModal();return;
+ if(GATED[el.dataset.act]&&el.dataset.act!=='fav'&&S.role==='student'&&LOGGED()&&ME.suspended){
+  e.preventDefault();e.stopPropagation();S.modal={type:'info',title:'Your account is suspended',text:`You can't ${GATED[el.dataset.act]} while your account is suspended. Reason: ${(S.students[MYID()]||{}).suspendReason||'not given'}. Contact Lodgely support to appeal.`};renderModal();return;
  }
  if(GATED[el.dataset.act]&&(S.screen==='landing'||S.role==='student')&&!LOGGED()){
   e.preventDefault();e.stopPropagation();
@@ -1793,7 +1588,7 @@ document.addEventListener('click',e=>{
 document.addEventListener('keydown',e=>{
  if(e.key==='Escape'&&tourState){tourEnd(false);return;}
  if(e.key==='Escape'&&themeOpen){themeOpen=false;syncTheme();const b=document.querySelector('[data-act="themeMenu"]');if(b)b.focus();return;}
- if(e.key==='Escape'&&S.modal&&S.modal.stage!=='processing'){S.modal=null;save();renderModal();render();return;}
+ if(e.key==='Escape'&&S.modal&&S.modal.stage!=='processing'&&S.modal.stage!=='provider'&&!S.modal.sending){S.modal=null;save();renderModal();render();return;}
  const t=e.target;
  if(e.key==='Enter'&&t.dataset&&t.dataset.enter&&ACT[t.dataset.enter]){e.preventDefault();if(t.dataset.bind)setPath(t.dataset.bind,t.value);ACT[t.dataset.enter](t);return;}
  if((e.key==='Enter'||e.key===' ')&&t.matches&&t.matches('[role="link"][data-act]')){e.preventDefault();t.click();}
@@ -1812,7 +1607,7 @@ document.addEventListener('change',e=>{
  if(el.id==='nl-photos'){handlePhotos(el);return;}
  if(el.id==='pf-photo'){handleAvatar(el);return;}
  if(el.id==='vk-scan'){scanQR(el);return;}
- if((el.id==='as-idfile'||el.id==='as-prooffile')&&S.modal){const f=el.files&&el.files[0];if(f){S.modal[el.id==='as-idfile'?'idFile':'proofFile']=f.name;S.modal.err='';renderModal();}return;}
+ if((el.id==='as-idfile'||el.id==='as-prooffile')&&S.modal){const f=el.files&&el.files[0];if(f){if(f.size>10*1024*1024){S.modal.err='That file is bigger than 10 MB. Use a smaller photo or PDF.';renderModal();return;}const k=el.id==='as-idfile'?'id':'proof';FILES[k]=f;S.modal[k+'File']=f.name;S.modal.err='';renderModal();}return;}
  if(!el.dataset||!el.dataset.bind)return;
  setPath(el.dataset.bind,el.type==='checkbox'?el.checked:el.value);
  const rr=el.dataset.rerender;
@@ -1830,10 +1625,10 @@ function handlePhotos(input){
   img.onerror=()=>{URL.revokeObjectURL(url);if(--left===0)render();};img.src=url;});
 }
 function tick(){
- document.querySelectorAll('[data-hold]').forEach(el=>{const ms=Math.max(0,+el.dataset.hold-now());el.textContent=p2(Math.floor(ms/6e4))+':'+p2(Math.floor(ms/1000)%60);});
+ let expired=false;
+ document.querySelectorAll('[data-hold]').forEach(el=>{const ms=Math.max(0,+el.dataset.hold-now());if(ms===0&&!el.dataset.over){el.dataset.over='1';expired=true;}el.textContent=p2(Math.floor(ms/6e4))+':'+p2(Math.floor(ms/1000)%60);});
  document.querySelectorAll('[data-cd]').forEach(el=>{const c=cdText(+el.dataset.cd);if(el.dataset.full){['d','h','m','s'].forEach(u=>{const b=el.querySelector(`[data-u="${u}"]`);if(b)b.textContent=c[u];});}else el.textContent=c.str;});
- const before=S.modal;
- if(checkKeys()){save();const a=document.activeElement;if(!a||!/INPUT|TEXTAREA|SELECT/.test(a.tagName))render();if(S.modal!==before)renderModal();}
+ if(expired)refresh().then(bgRender).catch(()=>{});
 }
 
 /* ---------- public landing page ---------- */
@@ -2021,13 +1816,13 @@ function pageView(){
  const f={about:pageAbout,help:pageHelp,contact:pageContact,terms:pageTerms,privacy:pagePrivacy}[S.page]||pageAbout;
  return `<section class="lsec page"><div class="lwrap pwrap"><div><button class="link small" data-act="pageBack">${ic('back',16)} Back</button></div>${f()}</div></section>${landingFooter()}`;
 }
-function landingFooter(){return `<footer class="lfoot"><div class="lwrap"><div class="brand">${KEYMARK}<span>Lodgely</span></div><nav class="flinks" aria-label="Footer">${[['about','About'],['help','Help centre'],['contact','Contact'],['terms','Terms'],['privacy','Privacy']].map(([k,l])=>`<button class="link small" data-act="page" data-p="${k}">${l}</button>`).join('')}</nav><p>Student housing for OAU, Ile-Ife. This is a demo: payments are simulated and your data stays in this browser.</p><button class="btn sm ghost" data-act="openApp">Open the app</button></div></footer>`;}
+function landingFooter(){return `<footer class="lfoot"><div class="lwrap"><div class="brand">${KEYMARK}<span>Lodgely</span></div><nav class="flinks" aria-label="Footer">${[['about','About'],['help','Help centre'],['contact','Contact'],['terms','Terms'],['privacy','Privacy']].map(([k,l])=>`<button class="link small" data-act="page" data-p="${k}">${l}</button>`).join('')}</nav><p>Student housing for OAU, Ile-Ife.${DEMO?' This is a demo: payments are simulated and your data stays in this browser.':''}</p><button class="btn sm ghost" data-act="openApp">Open the app</button></div></footer>`;}
 
 /* ---------- profile settings ---------- */
 const NOTIF_CATS={student:[['messages','Messages from agents'],['visits','Visit reminders'],['payments','Payments and keys'],['renewals','Renewal reminders'],['ballots','Ballots']],agent:[['messages','Messages from students'],['bookings','New visit bookings'],['payouts','Payouts'],['tenants','Tenants and renewals'],['complaints','Complaints about your houses']]};
 const meKind=()=>S.role==='agent'?'agent':'student';
-const me=()=>S.role==='agent'?agent(MYID()):S.students[MYID()];
-function prefsOf(p,kind){if(!p.prefs){p.prefs={};NOTIF_CATS[kind].forEach(([k])=>p.prefs[k]={email:true,sms:['visits','renewals','bookings','payouts','payments'].includes(k)});}return p.prefs;}
+const me=()=>S.role==='agent'?agent(MYID()):(S.students[MYID()]||{name:ME?ME.name:'',prefs:null});
+function prefsOf(p,kind){const pr=Object.assign({},p.prefs||{});NOTIF_CATS[kind].forEach(([k])=>{if(!pr[k])pr[k]={email:true,sms:['visits','renewals','bookings','payouts','payments'].includes(k)};});return pr;}
 const avatarHTML=(name,photo,cls='')=>`<div class="avatar ${cls}">${photo?`<img src="${photo}" alt="">`:initials(name)}</div>`;
 V.settings=()=>{
  const ag=S.role==='agent',p=me(),kind=meKind(),pr=prefsOf(p,kind);
@@ -2048,7 +1843,8 @@ V.settings=()=>{
 };
 function handleAvatar(input){
  const f=input.files&&input.files[0];if(!f)return;const url=URL.createObjectURL(f),img=new Image();
- img.onload=()=>{const c=document.createElement('canvas'),s=Math.min(img.naturalWidth,img.naturalHeight),z=240;c.width=z;c.height=z;c.getContext('2d').drawImage(img,(img.naturalWidth-s)/2,(img.naturalHeight-s)/2,s,s,0,0,z,z);me().photo=c.toDataURL('image/jpeg',.8);URL.revokeObjectURL(url);save();render();toast('Photo updated.');};
+ img.onload=()=>{const c=document.createElement('canvas'),s=Math.min(img.naturalWidth,img.naturalHeight),z=240;c.width=z;c.height=z;c.getContext('2d').drawImage(img,(img.naturalWidth-s)/2,(img.naturalHeight-s)/2,s,s,0,0,z,z);const d=c.toDataURL('image/jpeg',.8);URL.revokeObjectURL(url);
+  (async()=>{let photo=d;if(!DEMO){try{photo=await B.upload(dataUrlFile(d,'avatar.jpg'));}catch(e){toast(e.message);return;}}run('save_profile',{photo},{close:false,ok:'Photo updated.'});})();};
  img.onerror=()=>{URL.revokeObjectURL(url);toast("That file isn't an image we can read.");};img.src=url;
 }
 MODALS.phone=m=>{const err=m.err?`<p class="err">${esc(m.err)}</p>`:'';return m.stage==='code'?`${mhead('Confirm your new number')}<p class="muted">We sent a 6-digit code to ${esc(m.phone)}.</p><input id="ph-otp" class="in mono" style="font-size:26px;letter-spacing:.35em;text-align:center" inputmode="numeric" maxlength="6" autocomplete="one-time-code" aria-label="6-digit code" data-enter="phoneVerify" placeholder="000000">${err}<button class="btn block" data-act="phoneVerify">Confirm</button><p class="hint" style="justify-self:center">Demo: the code is <b class="mono">${m.code}</b></p>`
@@ -2058,18 +1854,19 @@ MODALS.password=m=>`${mhead('Change password')}<div class="field"><label for="pw
 /* ---------- agent applicant screen ---------- */
 const REJECT_REASONS=["ID document is unclear or doesn't match the name","Proof of authority is missing or not valid","Phone or email could not be confirmed",'Something else'];
 V.pending=({id})=>{
- const a=agent(id);if(!a)return gone();
+ const a=agent(id||MYID());if(!a)return gone();
  const st=a.status,okI=ic('check',18),waitI=ic('clock',18).replace('class="ic"','class="ic" style="color:var(--warn)"'),badI=ic('x',18).replace('class="ic"','class="ic" style="color:var(--bad)"');
- const steps=[['Account created',okI],['Phone confirmed',okI],['Documents uploaded',okI],['Admin review',st==='verified'?okI:st==='rejected'?badI:waitI]];
- return `${backRow('Your application')}
+ const hasDocs=(a.docs||[]).length>0;
+ const steps=[['Account created',okI],['Email confirmed',okI],['Documents uploaded',hasDocs?okI:waitI],['Admin review',st==='verified'?okI:st==='rejected'?badI:waitI]];
+ return `${cur()?backRow('Your application'):''}
  ${head(esc(a.biz),st==='verified'?"You're verified":st==='rejected'?'Your application needs changes':'Verification in progress')}
- ${st==='pending'?`<div class="insp">${ic('clock',22)}<div><b>Admin is checking your documents</b><p class="small">This usually takes 12 to 24 hours. You'll get a notification and an SMS when it's done. You can't add houses until then.</p></div></div>`
+ ${st==='pending'&&!hasDocs?`<div class="insp">${ic('alert',22)}<div><b>Upload your documents</b><p class="small">Send your ID and proof that you can let the property. Admin checks them within 12 to 24 hours.</p><div class="btns"><button class="btn sm" data-act="resubmitDocs" data-id="${a.id}">Upload documents</button></div></div></div>`
+  :st==='pending'?`<div class="insp">${ic('clock',22)}<div><b>Admin is checking your documents</b><p class="small">This usually takes 12 to 24 hours. You'll get a notification and an SMS when it's done. You can't add houses until then.</p></div></div>`
   :st==='verified'?`<div class="insp ok-tone">${ic('check',22)}<div><b>Approved</b><p class="small">Your account is verified. You can now add houses and set up your payout account.</p></div></div>`
   :st==='rejected'?`<div class="insp" style="background:var(--bad-soft)">${ic('alert',22)}<div><b>What to fix</b><p class="small">${esc(a.rejectReason||'Admin did not give a reason.')}</p><div class="btns"><button class="btn sm" data-act="resubmitDocs" data-id="${a.id}">Upload new documents</button></div></div></div>`:''}
  <section class="block"><h2>Progress</h2><ul class="steps-v">${steps.map(([l,i])=>`<li>${i} ${l}</li>`).join('')}</ul></section>
  <section class="block"><h2>What you sent</h2><dl class="dl"><div><dt>Name</dt><dd>${esc(a.name)}</dd></div><div><dt>Business</dt><dd>${esc(a.biz)}</dd></div><div><dt>Phone</dt><dd>${esc(a.phone)}</dd></div></dl><ul class="rules small">${(a.docs||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></section>
- <p class="hint">Demo: this is ${esc(a.name)}'s screen. The rest of the agent view belongs to Kunle Oladipo, a verified agent.</p>
- <div class="btns"><button class="btn sm ghost" data-act="page" data-p="help">Read the agent guide</button></div>`;
+ <div class="btns"><button class="btn sm ghost" data-act="page" data-p="help">Read the agent guide</button><button class="btn sm ghost" data-act="push" data-v="settings">Profile and settings</button><button class="btn sm ghost" data-act="logout">Log out</button></div>`;
 };
 MODALS.rejectAgent=m=>{const a=agent(m.id);return `${mhead('Reject '+esc(a.name)+'?')}<p class="muted">They'll see the reason and can upload new documents.</p>
  <div class="field"><span class="lbl">Reason</span><div class="methods" role="radiogroup" aria-label="Reason">${REJECT_REASONS.map(r=>`<label class="opt"><input type="radio" name="rjr" value="${esc(r)}" data-bind="modal.reason" ${m.reason===r?'checked':''}><span>${esc(r)}</span></label>`).join('')}</div></div>
@@ -2084,58 +1881,55 @@ Object.assign(ACT,{
   if(p==='contact'&&!S.ctSent){const c=S.ct||(S.ct={name:'',contact:'',who:'Student',topic:'A house or a visit',msg:''});if(!c.name){if(S.pageFrom==='app'&&S.role==='agent'){c.name=agent(MYID()).name;c.contact=agent(MYID()).email||'';c.who='Agent or caretaker';}else if(LOGGED()){c.name=stu(MYID()).name;c.contact=S.students[MYID()].email||'';}}}
   save();render();renderModal();scrollTo(0,0);},
  pageBack:()=>{S.screen=S.pageFrom||'landing';S.ctSent=false;save();render();scrollTo(0,0);},
- sendContact:()=>{
+ sendContact:async()=>{
   const c=S.ct;['name','contact','msg'].forEach(k=>{const i=$('#ct-'+k);if(i)c[k]=i.value.trim();});
   S.ctErr=!c.name?'Add your name.':!(EMAIL_RE.test(c.contact)||PHONE_RE.test(c.contact))?'Add an email address or phone number so we can reply.':c.msg.length<10?'Tell us a little more in your message.':'';
   if(S.ctErr){render();return;}
-  S.support.unshift({id:uid('m'),name:c.name,contact:c.contact,who:c.who,topic:c.topic,msg:c.msg,t:now(),status:'new'});note('admin',`New support message from ${c.name}: ${c.topic}.`);
-  S.ctSent=true;save();render();scrollTo(0,0);
+  try{await B.call('contact_support',{name:c.name,contact:c.contact,who:c.who,topic:c.topic,msg:c.msg});}catch(e){S.ctErr=e.message;render();return;}
+  S.ctSent=true;save();refresh().catch(()=>{});render();scrollTo(0,0);
  },
  contactAgain:()=>{S.ctSent=false;S.ct.msg='';render();},
- supportDone:el=>{const x=S.support.find(y=>y.id===el.dataset.id);x.status=x.status==='answered'?'new':'answered';save();render();},
- removePhoto:()=>{me().photo=null;save();render();toast('Photo removed.');},
- saveProfile:()=>{const p=me(),email=(($('#pf-email')||{}).value||'').trim();if(email&&!EMAIL_RE.test(email)){toast('Enter a valid email address.');return;}p.email=email;if(S.role==='agent')p.bio=(($('#pf-bio')||{}).value||'').trim();else p.dept=(($('#pf-dept')||{}).value||'').trim()||p.dept;save();render();toast('Details saved.');},
- prefToggle:el=>{const pr=prefsOf(me(),meKind()),c=el.dataset.c,ch=el.dataset.ch;pr[c][ch]=!pr[c][ch];save();render();},
+ supportDone:el=>run('toggle_support_done',{id:el.dataset.id},{close:false}),
+ removePhoto:()=>run('save_profile',{photo:''},{close:false,ok:'Photo removed.'}),
+ saveProfile:()=>{const email=(($('#pf-email')||{}).value||'').trim();if(email&&!EMAIL_RE.test(email)){toast('Enter a valid email address.');return;}
+  const a={};if(DEMO&&email)a.email=email;if(S.role==='agent')a.bio=(($('#pf-bio')||{}).value||'').trim();else a.dept=(($('#pf-dept')||{}).value||'').trim();
+  run('save_profile',a,{close:false,ok:'Details saved.'});},
+ prefToggle:el=>{const pr=JSON.parse(JSON.stringify(prefsOf(me(),meKind()))),c=el.dataset.c,ch=el.dataset.ch;pr[c][ch]=!pr[c][ch];run('save_prefs',{prefs:pr},{close:false});},
  changePhone:()=>{S.modal={type:'phone',stage:'enter',phone:''};renderModal();},
- phoneSend:()=>{const m=S.modal,v=(($('#ph-new')||{}).value||'').trim();m.phone=v;if(!PHONE_RE.test(v)){m.err='Enter a phone number like 0812 345 6789.';renderModal();return;}m.code=genCode();m.stage='code';m.err='';renderModal();},
- phoneVerify:()=>{const m=S.modal,v=(($('#ph-otp')||{}).value||'').trim();if(v!==m.code){m.err='That code is not right.';renderModal();return;}me().phone=m.phone;note(S.role==='agent'?MYID():MYID(),`Your phone number was changed to ${m.phone}. If this wasn't you, contact support.`);closeAll();toast('Phone number updated.');},
+ phoneSend:()=>{const m=S.modal,v=(($('#ph-new')||{}).value||'').trim();m.phone=v;if(!PHONE_RE.test(v)){m.err='Enter a phone number like 0812 345 6789.';renderModal();return;}
+  if(!DEMO){run('set_phone',{phone:v},{errTo:true,ok:'Phone number updated.'});return;}
+  m.code=genCode();m.stage='code';m.err='';renderModal();},
+ phoneVerify:()=>{const m=S.modal,v=(($('#ph-otp')||{}).value||'').trim();if(v!==m.code){m.err='That code is not right.';renderModal();return;}run('set_phone',{phone:m.phone},{errTo:true,ok:'Phone number updated.'});},
  changePassword:()=>{S.modal={type:'password'};renderModal();},
- savePassword:()=>{const m=S.modal,c=($('#pw-cur')||{}).value||'',n1=($('#pw-new')||{}).value||'',n2=($('#pw-new2')||{}).value||'';const err=!c?'Enter your current password.':n1.length<8?'Use at least 8 characters for the new password.':n1!==n2?"The new passwords don't match.":n1===c?'Choose a different password from your current one.':'';if(err){m.err=err;renderModal();return;}note(S.role==='agent'?MYID():MYID(),"Your password was changed. If this wasn't you, contact support.");closeAll();toast('Password changed.');},
- deleteAccount:()=>{
-  const busy=[];if(S.keys.some(k=>k.studentId===MYID()&&k.status==='active'))busy.push('an active key');if(S.payments.some(p=>p.studentId===MYID()&&p.status==='held'))busy.push('rent held by Lodgely');if(S.inspections.some(i=>i.studentId===MYID()&&i.status==='booked'))busy.push('a booked visit');
-  if(busy.length){S.modal={type:'info',title:"You can't delete your account yet",text:`You have ${busy.join(', ').replace(/, ([^,]*)$/,' and $1')}. Once those are finished, you can delete your account here.`};renderModal();return;}
-  S.modal={type:'confirm',title:'Delete your account?',text:'Your profile, saved houses and savings goal are removed. Payment records are kept as the law requires. Demo: this only logs you out, so the sample data stays for the next person.',ok:'Delete account',act:'deleteAccountYes',danger:true};renderModal();
+ savePassword:async()=>{const m=S.modal,c=($('#pw-cur')||{}).value||'',n1=($('#pw-new')||{}).value||'',n2=($('#pw-new2')||{}).value||'';const err=!c?'Enter your current password.':n1.length<8?'Use at least 8 characters for the new password.':n1!==n2?"The new passwords don't match.":n1===c?'Choose a different password from your current one.':'';if(err){m.err=err;renderModal();return;}
+  try{await B.auth.changePassword({current:c,next:n1});}catch(e){m.err=e.message;renderModal();return;}
+  run('note_password_changed',{},{ok:'Password changed.'});},
+ deleteAccount:async()=>{
+  let busyL=[];try{busyL=(await B.call('delete_account_check',{})).busy||[];}catch(e){toast(e.message);return;}
+  if(busyL.length){S.modal={type:'info',title:"You can't delete your account yet",text:`You have ${busyL.join(', ').replace(/, ([^,]*)$/,' and $1')}. Once those are finished, you can delete your account here.`};renderModal();return;}
+  S.modal={type:'confirm',title:'Delete your account?',text:'Your profile, saved houses and savings goal are removed. Payment records are kept as the law requires.'+(DEMO&&Object.values(B.people||{}).includes(MYID())?' Demo: this sample account is only logged out, so the sample data stays.':''),ok:'Delete account',act:'deleteAccountYes',danger:true};renderModal();
  },
- deleteAccountYes:()=>{ACT.logout();toast('Account deleted. Demo: you were logged out and the sample data was kept.');},
- viewApplication:el=>{const id=(el.dataset&&el.dataset.id)||(S.modal&&S.modal.newId);S.modal=null;renderModal();enterApp('agent','home');go({v:'pending',id});},
+ deleteAccountYes:async()=>{if(DEMO&&Object.values(B.people||{}).includes(MYID())){await ACT.logout();toast('Demo: you were logged out and the sample data was kept.');return;}
+  const r=await run('delete_account',{},{});if(!r)return;await ACT.logout();toast('Account deleted.');},
+ viewApplication:()=>{S.modal=null;renderModal();enterApp('agent','home');},
  rejectAgent:el=>{S.modal={type:'rejectAgent',id:el.dataset.id,reason:REJECT_REASONS[0]};renderModal();},
- rejectAgentYes:()=>{const m=S.modal,a=agent(m.id),n=(($('#rj-note')||{}).value||'').trim();a.status='rejected';a.rejectReason=m.reason+(n?'. '+n:'');note(a.id,`Your verification needs changes: ${a.rejectReason}. Upload new documents from your application screen.`);closeAll();toast(`${a.name} was asked to fix their application.`);},
- resubmitDocs:el=>{const a=agent(el.dataset.id);S.modal={type:'agentSignup',stage:'docs',resubmitId:a.id,name:a.name,biz:a.biz,phone:a.phone,email:'',btype:'',rel:'',idType:ID_TYPES[0],proofType:PROOF_TYPES[0]};renderModal();}
+ rejectAgentYes:()=>{const m=S.modal,n=(($('#rj-note')||{}).value||'').trim();run('reject_agent',{id:m.id,reason:m.reason,note:n},{ok:r=>`${r.name} was asked to fix their application.`});},
+ resubmitDocs:el=>{const a=agent(el.dataset.id||MYID());S.modal={type:'agentSignup',stage:'docs',resubmitId:a.id,name:a.name,biz:a.biz,phone:a.phone,email:'',btype:a.btype||'',rel:a.rel||'',idType:ID_TYPES[0],proofType:PROOF_TYPES[0]};renderModal();}
 });
 
 /* ---------- payment hold, QR, documents, location map ---------- */
-const HOLD_MS=15*6e4;
-function releaseHold(m){
- if(!(m&&m.type==='checkout'&&m.kind==='rent'&&m.stage!=='done'&&m.stage!=='processing'))return false;
- const r=room(house(m.houseId),m.roomId);if(r&&r.payHold&&r.payHold.by===MYID()){r.payHold=null;return true;}return false;
-}
-const LIB={qr:'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js',jsqr:'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js',pdf:'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'};
-const libP={};
-function loadLib(k){
- if(!libP[k])libP[k]=new Promise((res,rej)=>{const s=document.createElement('script');s.src=LIB[k];s.async=true;s.onload=()=>res();s.onerror=()=>{delete libP[k];s.remove();rej(new Error('load'));};document.head.appendChild(s);});
- return libP[k];
-}
+const syncBar=()=>setStatusBar(true);
 function hydrate(){
  document.querySelectorAll('[data-qr]:not([data-done])').forEach(el=>{
   el.setAttribute('data-done','1');
-  loadLib('qr').then(()=>{const q=window.qrcode(0,'M');q.addData(el.dataset.qr);q.make();el.innerHTML=q.createSvgTag({cellSize:4,margin:2,scalable:true,alt:'QR code for '+el.dataset.qr});})
-   .catch(()=>{el.classList.add('qr-off');el.innerHTML='<p class="small">The QR code needs an internet connection. The key code above works too.</p>';});
+  try{const q=qrcode(0,'M');q.addData(el.dataset.qr);q.make();el.innerHTML=q.createSvgTag({cellSize:4,margin:2,scalable:true,alt:'QR code for '+el.dataset.qr});}
+  catch(e){el.classList.add('qr-off');el.innerHTML='<p class="small">The QR code could not be drawn. The key code above works too.</p>';}
  });
 }
-let DL=null;
+const DL={save:({filename,data})=>saveFile(filename,data)};
 function scanQR(input){
  const f=input.files&&input.files[0];if(!f)return;toast('Reading the QR code...');
- Promise.all([loadLib('jsqr'),new Promise((res,rej)=>{const url=URL.createObjectURL(f),img=new Image();img.onload=()=>{URL.revokeObjectURL(url);res(img);};img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('img'));};img.src=url;})])
+ Promise.all([import('jsqr').then(m=>{window.jsQR=m.default;}),new Promise((res,rej)=>{const url=URL.createObjectURL(f),img=new Image();img.onload=()=>{URL.revokeObjectURL(url);res(img);};img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('img'));};img.src=url;})])
   .then(([,img])=>{
    const sc=Math.min(1,1200/Math.max(img.naturalWidth,img.naturalHeight)),c=document.createElement('canvas');c.width=Math.round(img.naturalWidth*sc);c.height=Math.round(img.naturalHeight*sc);
    const x=c.getContext('2d');x.drawImage(img,0,0,c.width,c.height);const d=x.getImageData(0,0,c.width,c.height);const r=window.jsQR(d.data,c.width,c.height);
@@ -2155,7 +1949,7 @@ function receiptDoc(p){
  if(p.savingsUsed)rows.push(['From rent savings',fmt(p.savingsUsed)],['Paid now',fmt(p.amount-p.savingsUsed)]);
  rows.push(['Method',p.method],['Status',{held:'Paid. Held by Lodgely until move-in',released:'Paid. Released to the agent',refunded:'Refunded to you',paid:'Paid'}[p.status]||p.status]);
  if(k&&p.kind!=='inspection')rows.push(['Subscription key',k.code]);
- return {title:'Payment receipt',file:`Lodgely receipt ${p.ref}.pdf`,rows,notes:['Keep this receipt. If something goes wrong, contact Lodgely support with the receipt number.','Demo receipt. No real money moved.']};
+ return {title:'Payment receipt',file:`Lodgely receipt ${p.ref}.pdf`,rows,notes:['Keep this receipt. If something goes wrong, contact Lodgely support with the receipt number.',PAYMODE==='simulated'?'Test receipt. No real money moved.':'Payment processed by Paystack.']};
 }
 function agreementDoc(k){
  const h=house(k.houseId),r=room(h,k.roomId),a=agent(h.agentId),s=S.students[k.studentId]||{},p=S.payments.find(x=>x.id===k.payId);
@@ -2188,7 +1982,7 @@ function docActions(kind,id){return `<div class="btns">${DL?`<button class="btn 
 V.receipt=({id})=>{const p=S.payments.find(x=>x.id===id);if(!p)return gone();return `${backRow('Receipt')}${docActions('receipt',id)}${docHTML(receiptDoc(p))}`;};
 V.agreement=({code})=>{const k=S.keys.find(x=>x.code===code);if(!k)return gone();return `${backRow('Tenancy agreement')}${docActions('agreement',code)}${docHTML(agreementDoc(k))}`;};
 async function docPdfBlob(d){
- await loadLib('pdf');const doc=new window.jspdf.jsPDF({unit:'pt',format:'a4'});
+ const {jsPDF}=await import('jspdf');const doc=new jsPDF({unit:'pt',format:'a4'});
  const T=s=>String(s).replace(/₦/g,'NGN ').replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/−/g,'-');
  const W=doc.internal.pageSize.getWidth(),H=doc.internal.pageSize.getHeight(),M=48;let y=0;
  const need=h=>{if(y+h>H-M){doc.addPage();y=M;}};
@@ -2220,12 +2014,12 @@ function miniMap(h){
 }
 Object.assign(ACT,{
  docPdf:async el=>{
-  const d=docFor(el.dataset.k,el.dataset.id);if(!DL){toast("Downloading isn't available in this view.");return;}
-  let blob;try{toast('Preparing the PDF...');blob=await docPdfBlob(d);}catch(e){toast("Couldn't build the PDF. Check your connection and try again.");return;}
-  try{await DL.save({filename:d.file,data:blob});toast('PDF saved.');}
+  const d=docFor(el.dataset.k,el.dataset.id);
+  let blob;try{toast('Preparing the PDF...');blob=await docPdfBlob(d);}catch(e){toast("Couldn't build the PDF. Try again.");return;}
+  try{await DL.save({filename:d.file,data:blob});toast('PDF ready.');}
   catch(e){const c=e&&e.code;toast(c==='declined'?'Download cancelled.':c==='rate_limited'?'Another download is already waiting for your answer.':"Couldn't save the file here.");}
  },
- releaseRoom:el=>{const r=room(house(el.dataset.h),el.dataset.r);if(r&&r.payHold&&r.payHold.by===MYID())r.payHold=null;S.modal=null;save();renderModal();render();toast('Room released. Other students can rent it now.');},
+ releaseRoom:el=>run('release_room',{roomId:el.dataset.r},{ok:'Room released. Other students can rent it now.'}),
  docCopy:el=>{const t=docText(docFor(el.dataset.k,el.dataset.id)),fail=()=>toast("Copying isn't available here. Select the text on the page instead.");try{navigator.clipboard.writeText(t).then(()=>toast('Details copied.'),fail);}catch(e){fail();}}
 });
 
@@ -2272,35 +2066,22 @@ function tourEnd(done,silent){
  try{localStorage.setItem('lodgely-tour','done');}catch(e){window.__lodgelyTour=true;}
  if(!silent)toast(done?'You are all set. Tap Demo any time for the full walkthrough.':'Tour skipped. You can replay it from Demo.');
 }
-function norm(o){
- o.screen=o.screen||'landing';o.ld=o.ld||{school:'oau',type:'Any',max:'Any'};o.waitlist=o.waitlist||[];
- o.waitSeed=o.waitSeed||{ui:38,unilorin:26,uniosun:21,futa:17,fuoye:12,lautech:9,eksu:7};o.slow=!!o.slow;
- o.auth=o.auth||{student:false};
- if(o.nav&&o.nav.admin&&o.nav.admin.tab==='approvals')o.nav.admin.tab='listings';
- o.support=o.support||[];
- if(o.students&&o.students.s1){o.students.s1.email=o.students.s1.email||'tolu@example.com';o.students.s1.phone=o.students.s1.phone||'0812 345 6789';}
- if(o.agents&&o.agents.a1)o.agents.a1.email=o.agents.a1.email||'kunle@example.com';
- if(o.screen==='page'&&!o.page)o.screen='landing';
- (o.houses||[]).forEach(h=>{if(h.baths===undefined)h.baths=h.type==='Flat'?2:h.type==='Single room'?Math.max(1,Math.ceil(h.rooms.length/2)):h.rooms.length;if(!h.days)h.days=[1,2,3,4,5,6];});
- const g=o.savings&&o.savings.goal;if(g&&g.sched!=='none'&&g.schedAmt>0&&g.nextAuto===undefined)g.nextAuto=Date.now()+(o.shift||0)+24*DAY;
- Object.values(o.agents||{}).forEach(updateTrust);
- if(o.threads&&!o.threads.some(t=>t.id==='t3')){const T=Date.now()+(o.shift||0);o.threads.push({id:'t3',houseId:'h6',studentId:'s6',agentId:'a2',msgs:[
-  {from:'s',text:'Good afternoon ma. I like the furnished room. Can I pay you cash when I come so we skip the app?',t:T-3*DAY,read:true,flag:true},
-  {from:'a',text:'Sorry, I only take payment through Lodgely. Please book the inspection on the listing.',t:T-3*DAY+36e5,read:true}],
-  reported:true,reportReason:'Asked to pay outside Lodgely',reportedBy:'agent',reportedAt:T-3*DAY+2*36e5,reportStatus:'open'});}
- return o;
-}
-
 /* ---------- boot ---------- */
-function load(){try{const raw=localStorage.getItem(STORE);if(raw){const o=JSON.parse(raw);if(o&&o.v===5)return o;}}catch(e){}return seed();}
-S=norm(load());S.modal=null;
+S=Object.assign(uiDefaults(),loadUI());S.modal=null;
 if(themePref==='light'||themePref==='dark')root.setAttribute('data-theme',themePref);else if(themePref==='system')root.removeAttribute('data-theme');
-try{new MutationObserver(()=>{const a=root.getAttribute('data-theme'),want=(themePref==='light'||themePref==='dark')?themePref:null;if(a!==want)themePref=a||'system';syncTheme();}).observe(root,{attributes:true,attributeFilter:['data-theme']});}catch(e){}
+try{new MutationObserver(()=>{const a=root.getAttribute('data-theme'),want=(themePref==='light'||themePref==='dark')?themePref:null;if(a!==want)themePref=a||'system';syncTheme();syncBar();}).observe(root,{attributes:true,attributeFilter:['data-theme']});}catch(e){}
 document.addEventListener('scroll',e=>{const t=e.target;if(t&&t.classList&&t.classList.contains('gal-track'))setDots(t.parentNode,Math.round(t.scrollLeft/(t.clientWidth||1)));},true);
 addEventListener('resize',placeTour);
 addEventListener('scroll',()=>{if(tourState)requestAnimationFrame(placeTour);},{passive:true});
 loadedViews.add(viewKey());
-checkKeys();render();renderModal();maybeTour();
-(async()=>{try{if(window.claude&&typeof window.claude.use==='function')DL=await window.claude.use('downloads');}catch(e){DL=null;}if(DL&&S.screen==='app'){const c=cur();if(c&&(c.v==='receipt'||c.v==='agreement'))render();}})();
+render();
+try{await refresh();}catch(e){toast(e.message);}
+// returning from Paystack in a browser tab: ?pay=REF
+try{const q=new URLSearchParams(location.search),ref=q.get('pay');if(ref){history.replaceState(null,'',location.pathname);
+ if(B.user()){try{await B.providerVerify(ref);}catch(e){}const st=await B.call('payment_status',{ref});await refresh();S.screen='app';
+  S.modal={type:'info',title:st.status==='pending'?'Payment still processing':st.result&&st.result.error?'Payment not completed':'Payment received',text:st.status==='pending'?'We have not heard from the bank yet. This page updates by itself, and you will get a notification.':st.result&&st.result.error?st.result.error:'You can close this tab and go back to the app, or carry on here.'};}}}catch(e){}
+render();renderModal();maybeTour();syncBar();
+B.onChange(async()=>{try{await refresh();bgRender();}catch(e){}});
+initNative({onBack:()=>{if(S.modal&&S.modal.stage!=='processing'){ACT.closeModal();return true;}if(S.screen==='page'){ACT.pageBack();return true;}if(S.screen==='app'&&nav().stack.length){ACT.back();return true;}return false;},onResume:()=>refresh().then(bgRender).catch(()=>{})});
 setInterval(tick,1000);
 }

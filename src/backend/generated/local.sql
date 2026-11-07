@@ -2024,8 +2024,9 @@ end $$;
 -- Draw a ballot now / pass a ballot offer to the next person (admin tools).
 create or replace function public.run_draw(a jsonb) returns jsonb
 language plpgsql security definer set search_path = app, public as $$
-declare u uuid := app.need_admin(); b app.ballots; n int := 0;
+declare b app.ballots; n int := 0;
 begin
+  if not (app.cfg()).demo then perform app.need_admin(); end if;  -- demo panel lets anyone run draws
   for b in select * from app.ballots where status = 'open' and (nullif(a->>'id', '') is null or id = (a->>'id')::uuid) loop
     perform app.draw_ballot(b.id); n := n + 1;
   end loop;

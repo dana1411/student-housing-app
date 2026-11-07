@@ -1,0 +1,16 @@
+{
+  "name": "Lodgely",
+  "short_name": "Lodgely",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#1B2A6B",
+  "theme_color": "#1B2A6B",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

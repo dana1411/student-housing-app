@@ -25,4 +25,9 @@ fs.writeFileSync(path.join(root, 'capacitor.config.json'), JSON.stringify({
   android: { allowMixedContent: false },
   plugins: { SplashScreen: { launchShowDuration: 1200, backgroundColor: '#1B2A6B', showSpinner: false } }
 }, null, 2) + '\n');
+fs.writeFileSync(path.join(root, 'public/manifest.webmanifest'), JSON.stringify({
+  name: cfg.name, short_name: cfg.name, start_url: './', display: 'standalone',
+  background_color: '#1B2A6B', theme_color: '#1B2A6B',
+  icons: [{ src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }]
+}, null, 2) + '\n');
 console.log(`sql: local ${(local.length / 1024).toFixed(0)} KB, supabase ${(supa.length / 1024).toFixed(0)} KB`);
