@@ -23,7 +23,7 @@ fs.writeFileSync(path.join(root, 'supabase/migrations/20261107000000_core.sql'),
 fs.writeFileSync(path.join(root, 'capacitor.config.json'), JSON.stringify({
   appId: cfg.appId, appName: cfg.name, webDir: 'dist',
   android: { allowMixedContent: false },
-  plugins: { SplashScreen: { launchShowDuration: 1200, backgroundColor: '#1B2A6B', showSpinner: false } }
+  plugins: { SplashScreen: { launchAutoHide: false, launchShowDuration: 8000, launchFadeOutDuration: 250, backgroundColor: '#1B2A6B', showSpinner: false, androidScaleType: 'CENTER_CROP' } }
 }, null, 2) + '\n');
 fs.writeFileSync(path.join(root, 'public/manifest.webmanifest'), JSON.stringify({
   name: cfg.name, short_name: cfg.name, start_url: './', display: 'standalone',

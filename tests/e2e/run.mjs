@@ -260,6 +260,18 @@ await check('the new agent logs in with their password', async () => {
   await page.locator('main', { hasText: /Test Lodges|Femi/ }).first().waitFor();
 });
 
+await check('phone app opens straight into the app (no landing page)', async () => {
+  const p2 = await ctx.newPage();
+  p2.on('pageerror', e => errors.push('pageerror: ' + e.message));
+  await p2.goto(`http://localhost:${PORT}/?app=1`);
+  await p2.locator('.tabbar').waitFor({ timeout: 30000 });
+  if (await p2.locator('.land').count()) throw new Error('landing page shown in the app');
+  await p2.locator('[data-act="landing"]').first().click();
+  await p2.waitForTimeout(300);
+  if (await p2.locator('.land').count()) throw new Error('brand opened the landing page');
+  await p2.close();
+});
+
 await check('no script errors', async () => {
   const bad = errors.filter(e => !/favicon|Failed to load resource/.test(e));
   if (bad.length) throw new Error(bad.slice(0, 5).join(' | '));

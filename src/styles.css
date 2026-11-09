@@ -35,7 +35,7 @@
   color-scheme:dark}
 
 *,*::before,*::after{box-sizing:border-box}
-body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);-webkit-font-smoothing:antialiased}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);-webkit-font-smoothing:antialiased}
 body.locked{overflow:hidden}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--band)}
 button{font:inherit;color:inherit;cursor:pointer}
@@ -551,3 +551,56 @@ body.busy{cursor:progress}
 body.busy [data-act]{pointer-events:none}
 .demo-btn{white-space:nowrap}
 @media (max-width:420px){.hd .demo-btn .dlbl{display:none}.hd .demo-btn{padding-inline:9px}}
+
+/* ---------- phone app (html.app): feels native, not like a website ---------- */
+html.app{-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+html.app body{overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+html.app input,html.app textarea,html.app select,html.app .msgs,html.app .kc-code,html.app .mono{-webkit-user-select:text;user-select:text}
+html.app .btn,html.app .iconbtn,html.app .tab,html.app .rowi,html.app .demo-btn,html.app .chip-btn{transition:transform .09s ease,opacity .09s ease}
+html.app .btn:active,html.app .iconbtn:active,html.app .demo-btn:active,html.app .rowi:active{transform:scale(.97)}
+html.app .tab:active{transform:scale(.92)}
+html.app .band-in{padding-block:8px 10px}
+html.app .band-in.appbar{display:flex;align-items:center;gap:6px;min-height:44px}
+.apptitle{font-family:var(--f-display);font-weight:800;font-stretch:112%;font-size:19px;letter-spacing:-.01em}
+html.app .apppage{padding-top:12px}
+html.app .apppage .pwrap{display:grid;gap:14px}
+.applinks{text-align:center;margin-top:18px;line-height:2}
+.seg-in{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;background:var(--surface-2,var(--line));border-radius:12px;padding:4px}
+.seg-in button{display:flex;align-items:center;justify-content:center;gap:6px;height:38px;border:0;border-radius:9px;background:transparent;color:var(--muted);font-weight:600;font-size:14px}
+.seg-in button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+/* screen transitions */
+@keyframes in-push{from{opacity:.35;transform:translateX(28px)}to{opacity:1;transform:none}}
+@keyframes in-pop{from{opacity:.35;transform:translateX(-22px)}to{opacity:1;transform:none}}
+@keyframes in-tab{from{opacity:0}to{opacity:1}}
+html.app main.in-push{animation:in-push .22s cubic-bezier(.2,.8,.2,1) both}
+html.app main.in-pop{animation:in-pop .2s cubic-bezier(.2,.8,.2,1) both}
+html.app main.in-tab{animation:in-tab .16s ease-out both}
+@media (prefers-reduced-motion: reduce){html.app main.in-push,html.app main.in-pop,html.app main.in-tab{animation:none}}
+/* loading screen matches the native splash: brand colour with the key mark */
+.boot.splashy{min-height:100vh;min-height:100dvh;background:#1B2A6B;color:#E6B85C;place-content:center}
+.boot.splashy svg{width:72px;height:72px}
+
+/* explore in the phone app: search first, filters as a swipeable row of chips */
+html.app .hero-s{gap:10px}
+html.app .apph{font-size:28px;line-height:1.1}
+html.app .apps{margin-top:-6px}
+html.app .filters{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding-inline:16px;scroll-padding-inline:16px}
+html.app .filters::-webkit-scrollbar{display:none}
+html.app .filters .field{flex:0 0 auto}
+html.app .filters label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+html.app .filters select.in{height:38px;border-radius:99px;padding:0 32px 0 14px;font-size:14px;font-weight:600;background-position:calc(100% - 19px) 52%,calc(100% - 14px) 52%;width:auto}
+html.app .amen{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding-inline:16px}
+html.app .amen::-webkit-scrollbar{display:none}
+html.app .amen .tog{flex:0 0 auto}
+html.app .scam{font-size:13px;padding:10px 12px}
+/* pages: the app bar already shows the title */
+html.app .apppage .pwrap > .eyebrow:first-child,
+html.app .apppage .pwrap > .eyebrow:first-child + h1{display:none}
+
+.menu{display:grid;background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.menu-row{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;padding:0 14px;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--ink);font:inherit;font-weight:600;text-align:left}
+.menu-row:last-child{border-bottom:0}
+.menu-row span{flex:1}
+.menu-row svg:last-child{color:var(--muted)}
+.menu-row.danger-t{color:var(--bad)}
+html.app .menu-row:active{background:var(--line)}

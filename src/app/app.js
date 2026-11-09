@@ -1,11 +1,15 @@
 import qrcode from 'qrcode-generator';
-import { saveFile, openExternal, closeExternal, initNative, setStatusBar } from '../native.js';
+import { saveFile, openExternal, closeExternal, initNative, setStatusBar, isNative, hideSplash } from '../native.js';
 
 export async function start(B){
 'use strict';
 const STORE='lodgely-ui-v1', DAY=864e5;
 let FEE=3000, COMM=0.10, TERM=360, SHIFT=0, HOLD_MIN=15, OFFER_H=48;
 const DEMO=B.mode==='demo';
+// Phone app (or ?app=1 / installed web app): no landing page, opens straight into the app.
+const APP=isNative||(()=>{try{return new URLSearchParams(location.search).has('app')||matchMedia('(display-mode: standalone)').matches;}catch(e){return false;}})();
+if(APP)document.documentElement.classList.add('app');
+const FIRST_TAB={student:'explore',agent:'home',admin:'overview'};
 let ME=null, READY=false, clockOffset=0;
 const MYID=()=>ME?ME.id:null;
 const LOGGED=()=>!!ME&&ME.role==='student';
@@ -326,6 +330,8 @@ const gone=()=>`<div class="empty"><p>This page is no longer available.</p><butt
 const verBadge=a=>a.status==='verified'?`<span class="chip ver">${ic('shield',13)} Verified</span>`:a.status==='pending'?chip('Verification pending','warn'):a.status==='suspended'?chip('Suspended','bad'):chip('Not verified','bad');
 const cdBlocks=end=>{const c=cdText(end);return `<span><b data-u="d">${c.d}</b><small>days</small></span><span><b data-u="h">${c.h}</b><small>hrs</small></span><span><b data-u="m">${c.m}</b><small>min</small></span><span><b data-u="s">${c.s}</b><small>sec</small></span>`;};
 function progress(k){if(k.start>now())return `<div class="stack" style="gap:6px"><div class="prog"><i style="width:0"></i></div><p class="muted small">Starts ${fmtDate(k.start)} · ends ${fmtDate(k.end)}</p></div>`;const total=Math.round((k.end-k.start)/DAY);const day=Math.min(total,Math.max(1,Math.ceil((now()-k.start)/DAY)));return `<div class="stack" style="gap:6px"><div class="prog"><i style="width:${(day/total*100).toFixed(1)}%"></i></div><p class="muted small">Day ${day} of ${total} · ends ${fmtDate(k.end)}</p></div>`;}
+// Phone app: settings-style rows with a chevron instead of web-style pill buttons.
+const menuRows=items=>`<div class="menu">${items.map(([act,extra,label,icon,cls])=>`<button class="menu-row${cls?' '+cls:''}" data-act="${act}" ${extra||''}>${icon?ic(icon,20):''}<span>${label}</span>${ic('right',18)}</button>`).join('')}</div>`;
 function sel(id,path,opts,label,rr='results'){const val=getPath(path);return `<div class="field"><label for="${id}">${label}</label><select id="${id}" class="in" data-bind="${path}" data-rerender="${rr}">${opts.map(o=>{const [v,t]=Array.isArray(o)?o:[o,o];return `<option value="${esc(v)}" ${String(val)===String(v)?'selected':''}>${esc(t)}</option>`;}).join('')}</select></div>`;}
 
 /* ---------- student: explore ---------- */
@@ -373,8 +379,8 @@ const V={};
 V.student_explore=()=>{
  const f=S.f;
  return `<section class="hero-s">
-  <p class="eyebrow">Ile-Ife · 2026/2027 session</p>
-  <h1>Find a lodge near OAU. Inspect it. Pay safely.</h1>
+  ${APP?`<h1 class="apph">${LOGGED()?`Hi ${esc(String(ME.name).split(' ')[0])}`:'Find a lodge'}</h1><p class="muted small apps">Rooms near OAU, Ile-Ife · 2026/2027 session</p>`:`<p class="eyebrow">Ile-Ife · 2026/2027 session</p>
+  <h1>Find a lodge near OAU. Inspect it. Pay safely.</h1>`}
   <label class="search">${ic('search',18)}<input id="q" type="search" placeholder="Area, house or school" aria-label="Search houses" value="${esc(f.q)}" data-bind="f.q" data-live="results" autocomplete="off"></label>
   <div class="filters">
    ${sel('f-area','f.area',[['All','All areas'],...AREA_NAMES],'Area')}
@@ -607,7 +613,7 @@ V.student_lodge=()=>{
   else if(b.status==='filled')st=b.winnerKey&&keyOf(b.winnerKey)&&keyOf(b.winnerKey).studentId===MYID()?chip('Won · secured','ok'):chip('Not selected');
   else if(b.status==='cancelled')st=chip('Tenant renewed');else st=chip('Closed');
   return `<button class="rowi" data-act="push" data-v="house" data-id="${h.id}"><div class="grow"><b>${esc(h.title)}</b><span class="muted small">${esc(r.name)} · ${b.entrants.length} entries</span></div>${st}</button>`;};
- return `${head(esc(stu(MYID()).name)+' · '+esc(S.students[MYID()].dept||''),'My lodge','<div class="btns"><button class="btn sm ghost" data-act="push" data-v="settings">Profile and settings</button><button class="btn sm ghost" data-act="logout">Log out</button></div>')}
+ return `${head(esc(stu(MYID()).name)+' · '+esc(S.students[MYID()].dept||''),'My lodge',APP?menuRows([['push','data-v="settings"','Profile and settings','users']]):'<div class="btns"><button class="btn sm ghost" data-act="push" data-v="settings">Profile and settings</button><button class="btn sm ghost" data-act="logout">Log out</button></div>')}
  ${act.length?act.map(keySummary).join(''):empty('No lodge yet. Pick a house, inspect it, then pay rent here to get your subscription key.','Find a house','tab','data-t="explore"')}
  ${past.length?`<section class="block"><h2>Past keys</h2><div class="rows">${past.map(k=>{const h=house(k.houseId);return `<button class="rowi" data-act="push" data-v="key" data-code="${k.code}"><div class="grow"><b>${esc(h.title)}</b><span class="muted small">${fmtDate(k.start)} to ${fmtDate(k.end)}</span></div>${chip(k.status==='expired'?'Expired':'Cancelled','bad')}</button>`;}).join('')}</div></section>`:''}
  ${myB.length?`<section class="block"><h2>Ballots</h2><p class="muted small">Winners are drawn at random. A winner has 48 hours to pay, then the room passes to the next name.</p><div class="rows">${myB.map(bRow).join('')}</div></section>`:''}
@@ -790,7 +796,7 @@ V.agent_more=()=>{
  const about=S.complaints.filter(c=>c.kind==='public'&&!c.removed&&c.about!=='tenant'&&(c.agentId===MYID()||ids.includes(c.houseId)));
  const mine=S.complaints.filter(c=>c.authorId===MYID());
  const sample=S.keys.find(k=>ids.includes(k.houseId)&&k.status==='active');
- return `${head('Account',esc(a.name),`<div class="chips">${verBadge(a)}</div><div class="btns"><button class="btn sm ghost" data-act="push" data-v="settings">Profile and settings</button><button class="btn sm ghost" data-act="page" data-p="help">Help centre</button></div>`)}
+ return `${head('Account',esc(a.name),`<div class="chips">${verBadge(a)}</div>${APP?menuRows([['push','data-v="settings"','Profile and settings','users'],['page','data-p="help"','Help centre','alert']]):'<div class="btns"><button class="btn sm ghost" data-act="push" data-v="settings">Profile and settings</button><button class="btn sm ghost" data-act="page" data-p="help">Help centre</button></div>'}`)}
  <section class="block"><h2>Verification</h2><ul class="steps-v"><li>${ic('check',18)} ID document uploaded</li><li>${ic('check',18)} Phone ${esc(a.phone)} confirmed</li><li>${ic('check',18)} Proof of authority to let</li><li>${ic('check',18)} Approved by Lodgely admin</li></ul></section>
  <section class="block"><div class="row-between"><h2>Payouts</h2><div class="btns"><button class="btn sm ghost" data-act="payoutForm">${a.payout==='Not added'?'Add account':'Change account'}</button><button class="btn sm" data-act="push" data-v="payouts">See payouts</button></div></div><div class="dl"><div><dt>Account</dt><dd>${esc(a.payout)}</dd></div><div><dt>Commission</dt><dd>${COMM*100}% of rent and inspection fees</dd></div><div><dt>Paid out when</dt><dd>Tenant confirms move-in, or 7 days after payment</dd></div></div></section>
  <section class="block"><h2>Verify a subscription key</h2><p class="muted small">Ask the student for their key code before you hand over the room.</p>
@@ -958,7 +964,7 @@ function header(){
  const unread=S.notes.filter(n=>n.to===meId()&&!n.read).length;
  return `<header class="band"><div class="band-in">
   <button class="brand" data-act="landing" aria-label="Lodgely home page">${KEYMARK}<span>Lodgely</span><em>OAU · Ile-Ife</em></button>
-  <div class="hd">${themeCtl()}${S.role==='student'&&!LOGGED()?'<button class="demo-btn" data-act="login">Log in</button>':''}<button class="iconbtn" data-act="notes" ${S.role==='student'&&!LOGGED()?'hidden':''} aria-label="Notifications${unread?', '+unread+' unread':''}">${ic('bell',21)}${unread?`<b class="dot">${unread}</b>`:''}</button>${ME&&ME.role!=='student'?`<button class="iconbtn" data-act="logout" aria-label="Log out" title="Log out">${ic('door',21)}</button>`:''}${DEMO?`<button class="demo-btn" data-act="demo" aria-label="Demo guide">${ic('clock',16)}<span class="dlbl"> Demo</span></button>`:''}</div>
+  <div class="hd">${APP?'':themeCtl()}${S.role==='student'&&!LOGGED()?'<button class="demo-btn" data-act="login">Log in</button>':''}<button class="iconbtn" data-act="notes" ${S.role==='student'&&!LOGGED()?'hidden':''} aria-label="Notifications${unread?', '+unread+' unread':''}">${ic('bell',21)}${unread?`<b class="dot">${unread}</b>`:''}</button>${ME&&ME.role!=='student'?`<button class="iconbtn" data-act="logout" aria-label="Log out" title="Log out">${ic('door',21)}</button>`:''}${DEMO?`<button class="demo-btn" data-act="demo" aria-label="Demo guide">${ic('clock',16)}<span class="dlbl"> Demo</span></button>`:''}</div>
  </div></header>`;
 }
 function tabbar(){
@@ -971,7 +977,7 @@ function tabbar(){
 function body(){
  const c=cur();
  let clock=SHIFT?`<div class="clockbar">${ic('clock',16)}<span>Demo clock: ${fmtDate(now())} (${SHIFT>0?'+':''}${Math.round(SHIFT/DAY)} days)</span><button class="link" data-act="today">Back to today</button></div>`:'';
- if(S.role==='student'&&!LOGGED()&&!c&&SIGNED_OUT[nav().tab]){const [t,d]=SIGNED_OUT[nav().tab];return clock+`<div class="narrow">${head('Not logged in',t)}<div class="empty">${ic('lock',28)}<p>${d}</p><div class="btns" style="justify-content:center"><button class="btn sm" data-act="signup">Create an account</button><button class="btn sm ghost" data-act="login">Log in</button></div></div></div>`;}
+ if(S.role==='student'&&!LOGGED()&&!c&&SIGNED_OUT[nav().tab]){const [t,d]=SIGNED_OUT[nav().tab];return clock+`<div class="narrow">${head('Not logged in',t)}<div class="empty">${ic('lock',28)}<p>${d}</p><div class="btns" style="justify-content:center"><button class="btn sm" data-act="signup">Create an account</button><button class="btn sm ghost" data-act="login">Log in</button></div></div>${APP?`<p class="fine applinks">${[['help','Help'],['about','About'],['terms','Terms'],['privacy','Privacy']].map(([k,l])=>`<button class="link small" data-act="page" data-p="${k}">${l}</button>`).join(' · ')}<br><button class="link small" data-act="agentSignup">List your property: register as an agent</button></p>`:''}</div>`;}
  const susp=S.role==='student'&&LOGGED()&&ME.suspended?`<div class="clockbar" style="background:var(--bad-soft);color:var(--bad)">${ic('alert',16)}<span>Your account is suspended: ${esc((S.students[MYID()]||{}).suspendReason||'')}. You can't book, pay or message.</span></div>`:S.role==='agent'&&agent(MYID()).status==='suspended'?`<div class="clockbar" style="background:var(--bad-soft);color:var(--bad)">${ic('alert',16)}<span>Your account is suspended: ${esc(agent(MYID()).suspendReason||'')}. Your houses are hidden from students.</span></div>`:'';
  const testPay=!DEMO&&ME&&ME.role==='admin'&&PAYMODE==='simulated'?`<div class="clockbar" style="background:var(--warn-soft,var(--brass-soft));color:var(--ink)">${ic('alert',16)}<span>Payments are in test mode, so nobody is charged. Finish the Paystack setup (docs/SETUP.md, part 4) before opening to students.</span></div>`:'';
  clock=testPay+susp+clock;
@@ -984,11 +990,22 @@ function body(){
  return clock+(WIDE.includes(key)?html:`<div class="narrow">${html}</div>`);
 }
 let LOAD_ERR='';
+// Screen transitions in the phone app: slide in when going deeper, back when returning, fade between tabs.
+let lastKey=null,lastDepth=0;
+function enterAnim(){
+ const k=viewKey(),d=S.screen==='page'?9:(S.screen==='app'?nav().stack.length:0);
+ const a=!APP||lastKey===null||k===lastKey?'':d>lastDepth?' in-push':d<lastDepth?' in-pop':' in-tab';
+ lastKey=k;lastDepth=d;return a;
+}
 function render(){
- if(!READY){app.innerHTML=LOAD_ERR?`<div class="boot"><h1>Can't load Lodgely</h1><p>${esc(LOAD_ERR)}</p><button class="btn" data-act="retryLoad">Try again</button></div>`:'<div class="boot" aria-busy="true"><div class="boot-mark"></div><p>Loading Lodgely…</p></div>';return;}
+ if(!READY){app.innerHTML=LOAD_ERR?`<div class="boot"><h1>Can't load Lodgely</h1><p>${esc(LOAD_ERR)}</p><button class="btn" data-act="retryLoad">Try again</button></div>`:`<div class="boot splashy" aria-busy="true" aria-label="Loading Lodgely">${KEYMARK}</div>`;return;}
+ if(APP&&S.screen==='landing'){S.screen='app';S.role=ME?ME.role:'student';}
  if(S.screen==='landing'){app.innerHTML=landingHeader()+`<main id="main" class="land">${landing()}</main>`;return;}
- if(S.screen==='page'){app.innerHTML=landingHeader()+`<main id="main" class="land">${pageView()}</main>`;return;}
- app.innerHTML=header()+`<main class="wrap" id="main">${body()}</main>`+tabbar();
+ if(S.screen==='page'){
+  if(APP){app.innerHTML=`<header class="band"><div class="band-in appbar"><button class="iconbtn" data-act="pageBack" aria-label="Back">${ic('back',22)}</button><b class="apptitle">${({about:'About',help:'Help centre',contact:'Contact support',terms:'Terms of use',privacy:'Privacy'})[S.page]||''}</b></div></header><main id="main" class="wrap apppage${enterAnim()}"><div class="pwrap">${pageBody()}</div></main>`;return;}
+  app.innerHTML=landingHeader()+`<main id="main" class="land">${pageView()}</main>`;return;
+ }
+ app.innerHTML=header()+`<main class="wrap${enterAnim()}" id="main">${body()}</main>`+tabbar();
  hydrate();
 }
 function renderModal(){
@@ -1292,9 +1309,11 @@ const ACT={
  noop:()=>{},
  retryLoad:async()=>{LOAD_ERR='';render();try{await refresh();}catch(e){LOAD_ERR=e.message||'Check your connection.';}render();renderModal();},
  themeMenu:()=>{themeOpen=!themeOpen;syncTheme();if(themeOpen){const b=document.querySelector('.tmenu [aria-checked="true"]');if(b)b.focus();}},
- setTheme:el=>{const m=el.dataset.mode;themePref=m;try{localStorage.setItem(THEME_KEY,m);}catch(e){}if(m==='system')root.removeAttribute('data-theme');else root.setAttribute('data-theme',m);themeOpen=false;syncTheme();toast(m==='system'?'Theme now follows your device.':m==='dark'?'Dark mode on.':'Light mode on.');},
+ setTheme:el=>{const m=el.dataset.mode;themePref=m;try{localStorage.setItem(THEME_KEY,m);}catch(e){}if(m==='system')root.removeAttribute('data-theme');else root.setAttribute('data-theme',m);themeOpen=false;syncTheme();if(APP&&S.screen==='app')render();toast(m==='system'?'Theme now follows your device.':m==='dark'?'Dark mode on.':'Light mode on.');},
  gal:el=>{const g=el.closest('.gal'),t=g&&g.querySelector('.gal-track');if(!t)return;const n=t.children.length,w=t.clientWidth||1;let i=Math.round(t.scrollLeft/w)+(+el.dataset.dir);if(i<0)i=n-1;if(i>=n)i=0;let rm=false;try{rm=matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}if(t.scrollTo)t.scrollTo({left:i*w,behavior:rm?'auto':'smooth'});else t.scrollLeft=i*w;setDots(g,i);},
- landing:()=>{tourEnd(false,true);S.screen='landing';S.modal=null;save();render();renderModal();scrollTo(0,0);},
+ landing:()=>{tourEnd(false,true);S.modal=null;
+  if(APP){S.screen='app';S.role=ME?ME.role:'student';const n=nav();n.stack=[];n.tab=FIRST_TAB[S.role];navTo();save();render();renderModal();scrollTo(0,0);return;}
+  S.screen='landing';save();render();renderModal();scrollTo(0,0);},
  ldTop:()=>scrollTo(0,0),
  ldScroll:el=>{const t=document.getElementById(el.dataset.to);if(t&&t.scrollIntoView)t.scrollIntoView({block:'start'});},
  openApp:()=>enterApp(ME?ME.role:'student',ME&&ME.role==='agent'?'home':ME&&ME.role==='admin'?'overview':'explore'),
@@ -1825,6 +1844,7 @@ function pagePrivacy(){return `<p class="eyebrow">Legal</p><h1 class="lh2">Priva
  <h2>Your rights</h2><p>Under the Nigeria Data Protection Act 2023, you can ask to see, correct or delete your data, and object to how it is used. If you are not happy with our answer, you can complain to the Nigeria Data Protection Commission.</p>
  <h2>Security</h2><p>Passwords are stored encrypted, connections use HTTPS, and keys are checked on our servers.</p>
  <h2>Questions</h2><p><button class="link" data-act="page" data-p="contact">Contact us</button> about anything in this policy.</p>`;}
+function pageBody(){return ({about:pageAbout,help:pageHelp,contact:pageContact,terms:pageTerms,privacy:pagePrivacy}[S.page]||pageAbout)();}
 function pageView(){
  const f={about:pageAbout,help:pageHelp,contact:pageContact,terms:pageTerms,privacy:pagePrivacy}[S.page]||pageAbout;
  return `<section class="lsec page"><div class="lwrap pwrap"><div><button class="link small" data-act="pageBack">${ic('back',16)} Back</button></div>${f()}</div></section>${landingFooter()}`;
@@ -1850,8 +1870,9 @@ V.settings=()=>{
  <section class="block"><h2>Notifications</h2><p class="muted small">You always get notifications in the app. Choose what also comes by email or SMS.</p>
   <div class="ntable" role="table" aria-label="Notification settings"><div class="nrow nh" role="row"><span role="columnheader">Notification</span><span role="columnheader">Email</span><span role="columnheader">SMS</span></div>
   ${NOTIF_CATS[kind].map(([k,l])=>`<div class="nrow" role="row"><span role="cell">${l}</span>${['email','sms'].map(ch=>`<span role="cell"><button class="sw ${pr[k][ch]?'on':''}" role="switch" aria-checked="${pr[k][ch]}" aria-label="${l} by ${ch==='sms'?'SMS':'email'}" data-act="prefToggle" data-c="${k}" data-ch="${ch}"></button></span>`).join('')}</div>`).join('')}</div></section>
- <section class="block"><h2>Security</h2><div class="btns"><button class="btn sm ghost" data-act="changePassword">Change password</button><button class="btn sm ghost" data-act="logout">Log out</button>${ag?'<button class="btn sm ghost" data-act="push" data-v="agent" data-id="a1">View your public profile</button>':''}</div></section>
- <section class="block"><h2>Help and legal</h2><div class="btns">${[['help','Help centre'],['contact','Contact support'],['terms','Terms of use'],['privacy','Privacy policy']].map(([k,l])=>`<button class="btn sm ghost" data-act="page" data-p="${k}">${l}</button>`).join('')}</div></section>
+ ${APP?`<section class="block"><h2>Security</h2>${menuRows([...(ag?[['push',`data-v="agent" data-id="${MYID()}"`,'View your public profile','users']]:[]),['changePassword','','Change password','lock'],['logout','','Log out','door','danger-t']])}`:`<section class="block"><h2>Security</h2><div class="btns"><button class="btn sm ghost" data-act="changePassword">Change password</button><button class="btn sm ghost" data-act="logout">Log out</button>${ag?'<button class="btn sm ghost" data-act="push" data-v="agent" data-id="${MYID()}">View your public profile</button>':''}</div>`}</section>
+ ${APP?`<section class="block"><h2>Appearance</h2><div class="seg-in" role="radiogroup" aria-label="Theme">${THEMES.map(([k,l,i])=>`<button role="radio" aria-checked="${k===themeMode()}" class="${k===themeMode()?'on':''}" data-act="setTheme" data-mode="${k}">${ic(i,16)} ${l}</button>`).join('')}</div></section>`:''}
+ <section class="block"><h2>Help and legal</h2>${APP?menuRows([['help','Help centre'],['contact','Contact support'],['terms','Terms of use'],['privacy','Privacy policy']].map(([k,l])=>['page',`data-p="${k}"`,l])):`<div class="btns">${[['help','Help centre'],['contact','Contact support'],['terms','Terms of use'],['privacy','Privacy policy']].map(([k,l])=>`<button class="btn sm ghost" data-act="page" data-p="${k}">${l}</button>`).join('')}</div>`}</section>
  <section class="block"><h2>Delete account</h2><p class="muted small">${ag?'To close an agent account, contact support. Your listings, tenants and payouts need to be settled first.':"This removes your account. You can't delete it while you have an active key, money held by Lodgely or a booked visit."}</p><div>${ag?'<button class="btn sm ghost" data-act="page" data-p="contact">Contact support</button>':'<button class="btn sm ghost danger-t" data-act="deleteAccount">Delete my account</button>'}</div></section>`;
 };
 function handleAvatar(input){
@@ -1893,7 +1914,7 @@ Object.assign(ACT,{
  page:el=>{const p=el.dataset.p;tourEnd(false,true);if(S.screen!=='page')S.pageFrom=S.screen;S.screen='page';S.page=p;S.modal=null;
   if(p==='contact'&&!S.ctSent){const c=S.ct||(S.ct={name:'',contact:'',who:'Student',topic:'A house or a visit',msg:''});if(!c.name){if(S.pageFrom==='app'&&S.role==='agent'){c.name=agent(MYID()).name;c.contact=agent(MYID()).email||'';c.who='Agent or caretaker';}else if(LOGGED()){c.name=stu(MYID()).name;c.contact=S.students[MYID()].email||'';}}}
   save();render();renderModal();scrollTo(0,0);},
- pageBack:()=>{S.screen=S.pageFrom||'landing';S.ctSent=false;save();render();scrollTo(0,0);},
+ pageBack:()=>{S.screen=APP?'app':(S.pageFrom||'landing');S.ctSent=false;save();render();scrollTo(0,0);},
  sendContact:async()=>{
   const c=S.ct;['name','contact','msg'].forEach(k=>{const i=$('#ct-'+k);if(i)c[k]=i.value.trim();});
   S.ctErr=!c.name?'Add your name.':!(EMAIL_RE.test(c.contact)||PHONE_RE.test(c.contact))?'Add an email address or phone number so we can reply.':c.msg.length<10?'Tell us a little more in your message.':'';
@@ -2080,6 +2101,7 @@ function tourEnd(done,silent){
 }
 /* ---------- boot ---------- */
 S=Object.assign(uiDefaults(),loadUI());S.modal=null;
+if(APP&&S.screen!=='app')S.screen='app';
 if(themePref==='light'||themePref==='dark')root.setAttribute('data-theme',themePref);else if(themePref==='system')root.removeAttribute('data-theme');
 try{new MutationObserver(()=>{const a=root.getAttribute('data-theme'),want=(themePref==='light'||themePref==='dark')?themePref:null;if(a!==want)themePref=a||'system';syncTheme();syncBar();}).observe(root,{attributes:true,attributeFilter:['data-theme']});}catch(e){}
 document.addEventListener('scroll',e=>{const t=e.target;if(t&&t.classList&&t.classList.contains('gal-track'))setDots(t.parentNode,Math.round(t.scrollLeft/(t.clientWidth||1)));},true);
@@ -2092,8 +2114,8 @@ try{await refresh();}catch(e){LOAD_ERR=e.message||'Check your connection.';}
 try{const q=new URLSearchParams(location.search),ref=q.get('pay');if(ref){history.replaceState(null,'',location.pathname);
  if(B.user()){try{await B.providerVerify(ref);}catch(e){}const st=await B.call('payment_status',{ref});await refresh();S.screen='app';
   S.modal={type:'info',title:st.status==='pending'?'Payment still processing':st.result&&st.result.error?'Payment not completed':'Payment received',text:st.status==='pending'?'We have not heard from the bank yet. This page updates by itself, and you will get a notification.':st.result&&st.result.error?st.result.error:'You can close this tab and go back to the app, or carry on here.'};}}}catch(e){}
-render();renderModal();maybeTour();syncBar();
+render();renderModal();maybeTour();syncBar();hideSplash();
 B.onChange(async()=>{try{await refresh();bgRender();}catch(e){}});
-initNative({onBack:()=>{if(S.modal&&S.modal.stage!=='processing'){ACT.closeModal();return true;}if(S.screen==='page'){ACT.pageBack();return true;}if(S.screen==='app'&&nav().stack.length){ACT.back();return true;}return false;},onResume:()=>refresh().then(bgRender).catch(()=>{})});
+initNative({onBack:()=>{if(S.modal&&S.modal.stage!=='processing'){ACT.closeModal();return true;}if(S.screen==='page'){ACT.pageBack();return true;}if(S.screen==='app'&&nav().stack.length){ACT.back();return true;}if(S.screen==='app'&&nav().tab!==FIRST_TAB[S.role]){nav().tab=FIRST_TAB[S.role];navTo();save();render();scrollTo(0,0);return true;}return false;},onResume:()=>refresh().then(bgRender).catch(()=>{})});
 setInterval(tick,1000);
 }

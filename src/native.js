@@ -53,6 +53,13 @@ export async function closeExternal() {
   try { const { Browser } = await plugin('browser'); await Browser.close(); } catch { /* already closed */ }
 }
 
+let splashHidden = false;
+export async function hideSplash() {
+  if (!isNative || splashHidden) return;
+  splashHidden = true;
+  try { const { SplashScreen } = await plugin('splash'); await SplashScreen.hide({ fadeOutDuration: 250 }); } catch { /* ignore */ }
+}
+
 // Android back button, status bar colour, resume refresh.
 export async function initNative({ onBack, onResume }) {
   if (!isNative) return;
@@ -61,10 +68,6 @@ export async function initNative({ onBack, onResume }) {
     App.addListener('backButton', () => { if (!onBack()) App.minimizeApp(); });
     App.addListener('resume', () => onResume && onResume());
   } catch { /* plugin missing */ }
-  try {
-    const { SplashScreen } = await plugin('splash');
-    await SplashScreen.hide();
-  } catch { /* ignore */ }
 }
 
 export async function setStatusBar(dark) {
