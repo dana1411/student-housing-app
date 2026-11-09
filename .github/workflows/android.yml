@@ -25,6 +25,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+          cache: gradle
       - run: npm ci
       - name: Build the web app
         run: npm run build
@@ -35,9 +36,11 @@ jobs:
       - run: npx cap sync android
       - name: Build debug APK
         working-directory: android
+        # retries: Gradle downloads its tools from GitHub, which sometimes times out
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          for i in 1 2 3 4; do ./gradlew assembleDebug --no-daemon && exit 0; echo "Build attempt $i failed, retrying in 30s"; sleep 30; done
+          exit 1
       # Easiest place to get it on a phone: the repo's Releases page, "Android app (latest build)".
       - name: Publish the APK on the Releases page
         if: github.ref == 'refs/heads/main'
